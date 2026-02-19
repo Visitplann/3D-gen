@@ -11,10 +11,10 @@ def detect_shapes(gray_img):
   )
   
   #DEBUG
-  cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
-  cv2.resizeWindow("Test Contour", 800, 600)
   debug_img = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
+  cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Contour", 800, 600)
   cv2.imshow("Debug Contours", debug_img)
   cv2.waitKey(0)
   cv2.destroyAllWindows()
@@ -26,8 +26,6 @@ def detect_shapes(gray_img):
     if area < 1000:
       continue
     
-    
-  
     approx = cv2.approxPolyDP(cnt, 0.02 * cv2.arcLength(cnt, True), True)
     shapes.append(approx)
     
@@ -54,5 +52,13 @@ def texture_cutout(clean_img, mon_shape):
   
   # Aplica alpha mask
   rgba[:, :, 3] = mask
+  
+  #DEBUG
+  cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Contour", 800, 600)
+  cv2.imshow("Debug Contours", debug_img)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
 
   return rgba
