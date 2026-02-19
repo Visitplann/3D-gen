@@ -77,7 +77,7 @@ def run_pipeline(monument_path, output_path):
     #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
     
     cv2.imwrite(albedo_path, albedo_ref[:, :, ::-1])
-    normal = height_map_to_normal_map(gray_ref, strength=3.0)
+    normal = height_map_to_normal_map(gray_ref, 3.0)
     cv2.imwrite(normal_path, normal[:, :, ::-1])
     
     #Mesh e UVS

@@ -70,7 +70,7 @@ def preprocess_image(path):
   cv2.destroyAllWindows()
   
   #Bilateral Filter(remove ruido)
-  img = cv2.bilateralFilter(img, d = 4, sigmaColor = 15, sigmaSpace = 30)
+  img = cv2.bilateralFilter(img, d = 6, sigmaColor = 10, sigmaSpace = 25)
   
   clean = img.copy()
   
