@@ -13,9 +13,10 @@ def detect_shapes(gray_img):
   #DEBUG
   debug_img = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
+  
   cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
   cv2.resizeWindow("Test Contour", 800, 600)
-  cv2.imshow("Debug Contours", debug_img)
+  cv2.imshow("Test Contours", debug_img)
   cv2.waitKey(0)
   cv2.destroyAllWindows()
   #
@@ -54,9 +55,9 @@ def texture_cutout(clean_img, mon_shape):
   rgba[:, :, 3] = mask
   
   #DEBUG
-  cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
-  cv2.resizeWindow("Test Contour", 800, 600)
-  cv2.imshow("Debug Contours", debug_img)
+  cv2.namedWindow("Test Texture", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Texture", 800, 600)
+  cv2.imshow("Debug Texture", rgba)
   cv2.waitKey(0)
   cv2.destroyAllWindows()
   #
