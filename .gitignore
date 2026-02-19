@@ -42,5 +42,5 @@ Thumbs.db
 *.bak
 
 # Ignore input/output data folders (except versioned data)
-!output/debug/
+
 
