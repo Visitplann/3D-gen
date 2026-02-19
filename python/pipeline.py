@@ -37,6 +37,7 @@ def run_pipeline(monument_path, output_path):
         
         #DEBUG
         img = cv2.imread(img_path)
+        cv2.waitKey(0)
 
         #FAILSAFE
         if img is None:
