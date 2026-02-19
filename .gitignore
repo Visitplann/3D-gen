@@ -27,9 +27,8 @@ ENV/
 .vscode/
 
 # Output and build folders
-output/
 debug/
-monuments/
+
 
 # System files
 Thumbs.db
@@ -44,8 +43,5 @@ Thumbs.db
 *.bak
 
 # Ignore input/output data folders (except versioned data)
-input/*
-!input/monument_01/
-output/*
 !output/debug/
-!output/monuments/
+
