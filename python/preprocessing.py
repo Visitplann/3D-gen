@@ -1,0 +1,113 @@
+import cv2
+import numpy as np
+import os
+from PIL import Image
+
+
+def remove_background(img):
+  h,w = img.shape[:2]
+  
+  mask = np.zeros((h,w), np.uint8)
+  
+  bgdModel = np.zeros((1,65), np.float64)#Background Model
+  fgdModel = np.zeros((1,65), np.float64)#Foreground Model
+  
+  #Marca o Centro da Imagem
+  rect = (
+    int(w*0.1),
+    int(h*0.1),
+    int(w*0.8),
+    int(h*0.8),
+  )
+  
+  #Remove as Partes da Imagem Fora do Rectangulo Central
+  cv2.grabCut(
+    img,
+    mask,
+    rect,
+    bgdModel,
+    fgdModel,
+    5,
+    cv2.GC_INIT_WITH_RECT
+  )
+  
+  #Mask para Binario
+  maskbin = np.where(
+    (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD),
+    1,
+    0
+  ).astype("uint8")
+
+  #Aplica Mask Binaria
+  result = img * maskbin[:, :, np.newaxis]
+  
+  return result
+
+def preprocess_image(path):
+  
+  img = cv2.imread(path)
+  
+  #Failsafe Line
+  assert img is not None, "file could not be read, check with os.path.exists()"
+  
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  
+  #Remove "Background"
+  img = remove_background(img)
+  
+  #Bilateral Filter(remove ruido)
+  img = cv2.bilateralFilter(img, d = 9, sigmaColor = 75, sigmaSpace = 75)
+  
+  clean = img.copy()
+  
+  #Ajuste de Contraste e Brilho
+  a = 1.2 #contraste
+  b = 10 #brilho
+  img = cv2.convertScaleAbs(img, alpha = a, beta = b)
+  
+  #Converte para Greyscale
+  gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+  
+  #Debug
+  cv2.imshow("Test", gray)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  os.makedirs("output/debug", exist_ok = True)
+  cv2.imwrite("output/debug/no_bg.png", img[:, :, ::-1])
+  #
+  
+  gray = cv2.GaussianBlur(gray, (3,3), 0)
+  
+  return gray, clean
+
+#Intensidade por Material: 
+#>Pedra Lisa: 1.0-1.5
+#>Fachada: 2.0-3.0
+#>Esculturas: 3.0-4.5
+def height_map_to_normal_map(gray, strg = 2.0, invert_y = True):
+  gray = gray.astype(np.float32) / 255.0
+  
+  #Grandiante
+  dx=cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize = 3)
+  dy=cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize = 3)
+  
+  if invert_y:
+    dy = -dy
+  
+  #Normal Vector
+  nx = -dx * strg
+  ny = -dy * strg
+  nz = np.ones_like(gray)
+  
+  norm = np.sqrt(nx*nx + ny*ny + nz*nz)
+  nx /= norm
+  ny /= norm
+  nz /= norm
+  
+  #Converçao para RGB
+  normal_map = np.zeros((gray.shape[0], gray.shape[1], 3), dtype = np.uint8)
+  normal_map[:,:,0]=((nx+1)*0.5*255).astype(np.uint8)
+  normal_map[:,:,1]=((ny+1)*0.5*255).astype(np.uint8)
+  normal_map[:,:,2]=((nz+1)*0.5*255).astype(np.uint8)
+  
+  return normal_map
