@@ -11,6 +11,8 @@ def detect_shapes(gray_img):
   )
   
   #DEBUG
+  cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Contour", 800, 600)
   debug_img = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
   cv2.imshow("Debug Contours", debug_img)
