@@ -50,15 +50,27 @@ def preprocess_image(path):
   #Failsafe Line
   assert img is not None, "file could not be read, check with os.path.exists()"
   
+  #DEBUG
+  cv2.imshow("Test", img)
+  cv2.waitKey(0)
+  
   img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
   
   #Remove "Background"
   img = remove_background(img)
   
+  #DEBUG
+  cv2.imshow("Test", img)
+  cv2.waitKey(0)
+  
   #Bilateral Filter(remove ruido)
-  img = cv2.bilateralFilter(img, d = 9, sigmaColor = 75, sigmaSpace = 75)
+  img = cv2.bilateralFilter(img, d = 5, sigmaColor = 30, sigmaSpace = 30)
   
   clean = img.copy()
+  
+  #DEBUG
+  cv2.imshow("Test", clean)
+  cv2.waitKey(0)
   
   #Ajuste de Contraste e Brilho
   a = 1.2 #contraste
