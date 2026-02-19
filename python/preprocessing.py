@@ -51,8 +51,11 @@ def preprocess_image(path):
   assert img is not None, "file could not be read, check with os.path.exists()"
   
   #DEBUG
+  cv2.namedWindow("Test Original", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Original", 800, 600)
   cv2.imshow("Test Original", img)
   cv2.waitKey(0)
+  
   
   img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
   
@@ -60,8 +63,11 @@ def preprocess_image(path):
   img = remove_background(img)
   
   #DEBUG
+  cv2.namedWindow("Test No Background", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test No Background", 800, 600)
   cv2.imshow("Test No Background", img)
   cv2.waitKey(0)
+  
   
   #Bilateral Filter(remove ruido)
   img = cv2.bilateralFilter(img, d = 5, sigmaColor = 30, sigmaSpace = 30)
@@ -69,8 +75,11 @@ def preprocess_image(path):
   clean = img.copy()
   
   #DEBUG
+  cv2.namedWindow("Test Clean", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Clean", 800, 600)
   cv2.imshow("Test Clean", clean)
   cv2.waitKey(0)
+  
   
   #Ajuste de Contraste e Brilho
   a = 1.2 #contraste
@@ -81,9 +90,10 @@ def preprocess_image(path):
   gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
   
   #DEBUG
+  cv2.namedWindow("Test Gray", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Gray", 800, 600)
   cv2.imshow("Test Gray", gray)
   cv2.waitKey(0)
-  
   cv2.destroyAllWindows()
   os.makedirs("output/debug", exist_ok = True)
   cv2.imwrite("output/debug/no_bg.png", img[:, :, ::-1])

@@ -35,10 +35,8 @@ def run_pipeline(monument_path, output_path):
 
       try:
         
-        #DEBUG
         img = cv2.imread(img_path)
         
-
         #FAILSAFE
         if img is None:
           print(f"Aviso: {file_name} não é uma imagem válida. A passar á frente...")
