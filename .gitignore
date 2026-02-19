@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pyo
+*.pyd
+*.pdb
+*.log
+*.sqlite3
+*.db
+*.DS_Store
+*.env
+.env/
+.venv/
+venv/
+ENV/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# Output and build folders
+output/
+debug/
+monuments/
+
+# System files
+Thumbs.db
+.DS_Store
+
+# Others
+*.glb
+*.obj
+*.stl
+*.ply
+*.tmp
+*.bak
+
+# Ignore input/output data folders (except versioned data)
+input/*
+!input/monument_01/
+output/*
+!output/debug/
+!output/monuments/
