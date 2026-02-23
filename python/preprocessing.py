@@ -70,7 +70,7 @@ def preprocess_image(path):
   cv2.destroyAllWindows()
   
   #Bilateral Filter(remove ruido)
-  img = cv2.bilateralFilter(img, d = 6, sigmaColor = 10, sigmaSpace = 25)
+  img = cv2.bilateralFilter(img, d = 6, sigmaColor = 10, sigmaSpace = 20)
   
   clean = img.copy()
   
@@ -89,6 +89,9 @@ def preprocess_image(path):
   #Converte para Greyscale
   gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
   
+  #Suaviza o background para facilitar a detecção de formas
+  gray = cv2.GaussianBlur(gray, (5,5), 0)
+  
   #DEBUG
   cv2.namedWindow("Test Gray", cv2.WINDOW_NORMAL)
   cv2.resizeWindow("Test Gray", 800, 600)
@@ -99,7 +102,18 @@ def preprocess_image(path):
   cv2.imwrite("output/debug/no_bg.png", img[:, :, ::-1])
   #
   
-  gray = cv2.GaussianBlur(gray, (3,3), 0)
+  #USE ONLY FOR SMOOTH MODERN ARCHITECTURE AND MODERN SCULPTURES, NOT SUITABLE FOR ORNATE HISTORIC MONUMENTS BECAUSE OF LARGE AMOUNTS OF DETAILS AND "HEAVY" TEXTURES 
+  #Aplica Threshold Otsu para separar o fundo do primeiro plano
+  #_, thresh = cv2.threshold(
+  #  gray, 0, 255,
+  #  cv2.THRESH_BINARY + cv2.THRESH_OTSU
+  #)
+  
+  #USE ONLY FOR SMOOTH MODERN ARCHITECTURE AND MODERN SCULPTURES, NOT SUITABLE FOR ORNATE HISTORIC MONUMENTS BECAUSE OF LARGE AMOUNTS OF DETAILS AND "HEAVY" TEXTURES 
+  #Fecha Pequenos Buracos e Conecta Componentes Próximos
+  #kernel = np.ones((7,7), np.uint8)
+  #gray = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+  
   
   return gray, clean
 

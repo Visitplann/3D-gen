@@ -10,6 +10,11 @@ def detect_shapes(gray_img):
     cv2.CHAIN_APPROX_SIMPLE
   )
   
+  if len(contours) == 0:
+      return None
+
+  largest = max(contours, key=cv2.contourArea)
+  
   #DEBUG
   debug_img = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
