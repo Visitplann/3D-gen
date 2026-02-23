@@ -2,23 +2,23 @@ import cv2
 
 def detect_shapes(gray_img):
   
-  edges = cv2.Canny(gray_img, 80, 160)
+  edges = cv2.Canny(gray_img, 50, 150)
   
   contours,_ = cv2.findContours(
     edges,
-    cv2.RETR_EXTERNAL,
+    cv2.RETR_EXTERNAL,#_EXTERNAL for straight up shapes, _TREE if the details are needed for the "height_map_to_normal_map" function
     cv2.CHAIN_APPROX_SIMPLE
   )
   
-  if len(contours) == 0:
-      return None
+  #if len(contours) == 0:
+  #    return None
 
-  largest = max(contours, key=cv2.contourArea)
+  #largest = max(contours, key=cv2.contourArea)
   
-  #DEBUG
   debug_img = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
   
+  #DEBUG
   cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
   debug_small = cv2.resize(debug_img, (800, 600))
   cv2.imshow("Test Contours", debug_small)
@@ -29,10 +29,10 @@ def detect_shapes(gray_img):
   shapes = []
   for cnt in contours:
     area = cv2.contourArea(cnt)
-    if area < 1000:
+    if area < 500:
       continue
     
-    approx = cv2.approxPolyDP(cnt, 0.02 * cv2.arcLength(cnt, True), True)
+    approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
     shapes.append(approx)
     
   #Para um Unico Contour Solido em Vez de Dividido(subtitui o ciclo "for" acima, nao sei se funciona bem com o "mesh_builder" mas deixa a funcao texture_cutout mais pequena e deve funcionar bem com a funcao "height_map_to_normal_map" que inclusive talvez tenha de ser mudada de sitio)

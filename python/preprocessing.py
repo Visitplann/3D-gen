@@ -4,6 +4,7 @@ import os
 from PIL import Image
 
 
+
 def remove_background(img):
   h,w = img.shape[:2]
   
