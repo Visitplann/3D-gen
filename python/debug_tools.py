@@ -7,12 +7,32 @@ DEBUG_INTERACTIVE = True
 def nothing(x):
     pass  
 
-def run_debug(image_path):
+def run_debug(img_path):
+    
+    #valid_extensions=('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
+    
+    #try:
+    #    image_files = sorted([f for f in os.listdir(monument_path) if f.lower().endswith(valid_extensions)])
+    #
+    #    if not image_files:
+    #        raise FileNotFoundError(f"Nenhuma imagem encontrada em: {monument_path}")
+    #  
+    #    for file_name in image_files:
+    #
+    #        img_path = os.path.join(monument_path, file_name)
+    #        print(f"Processando: {file_name}...")
 
-    img = cv2.imread(image_path)
-    if img is None:
-        print("Image not found.")
-        return
+    #       try:
+    #            img = cv2.imread(img_path)
+        
+            #FAILSAFE
+    #       if img is None:
+    #            print(f"Aviso: {file_name} não é uma imagem válida. A passar á frente...")
+    #            continue
+    #        img = cv2.imread(img_path)
+    #        if img is None:
+    #            print("Image not found.")
+    #            return
 
     gray_original = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
@@ -83,3 +103,4 @@ if __name__ == "__main__":
         print("Usage: python debug_tuner.py image_path")
     else:
         run_debug(sys.argv[1])
+        
