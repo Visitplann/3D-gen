@@ -2,7 +2,7 @@ import cv2
 
 def detect_shapes(gray_img):
   
-  edges = cv2.Canny(gray_img, 50, 150)
+  edges = cv2.Canny(gray_img, 71, 149)
   
   contours,_ = cv2.findContours(
     edges,
