@@ -29,10 +29,11 @@ def run_debug(img_path):
     #       if img is None:
     #            print(f"Aviso: {file_name} não é uma imagem válida. A passar á frente...")
     #            continue
-    #        img = cv2.imread(img_path)
-    #        if img is None:
-    #            print("Image not found.")
-    #            return
+    
+    img = cv2.imread(img_path)
+    if img is None:
+        print("Image not found.")
+        return
 
     gray_original = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
