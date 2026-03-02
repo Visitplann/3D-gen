@@ -1,5 +1,5 @@
-from .trimesh_builder import TrimeshBuilder
-from .open3d_builder import Open3DBuilder
+from mesh.trimesh_builder import TrimeshBuilder
+from mesh.open3d_builder import Open3DBuilder
 
 def get_mesh_builder(method="trimesh"):
 

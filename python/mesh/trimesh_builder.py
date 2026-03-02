@@ -2,7 +2,7 @@ import trimesh
 import os
 import numpy as np
 from PIL import Image
-from .base_mesh_builder import BaseMeshBuilder
+from mesh.base_mesh_builder import BaseMeshBuilder
 
 class TrimeshBuilder(BaseMeshBuilder):
   def __init__(self, debug=False, debug_dir="output/debug"):

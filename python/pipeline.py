@@ -1,9 +1,9 @@
 from preprocessing import remove_background,preprocess_image, height_map_to_normal_map
 from shape_detection import detect_shapes
 from volume_inference import infer_volumes
-from trimesh_builder import build_trimesh, apply_texture_to_mesh
-from open3d_builder import build_open3d
-from builder_selector import get_mesh_builder
+from mesh.trimesh_builder import TrimeshBuilder
+from mesh.open3d_builder import Open3DBuilder
+from mesh.builder_selector import get_mesh_builder
 from export_glb import export_glb
 
 

@@ -1,5 +1,5 @@
 import open3d as o3d
-from .base_mesh_builder import BaseMeshBuilder
+from mesh.base_mesh_builder import BaseMeshBuilder
 
 class Open3DBuilder(BaseMeshBuilder):
   
