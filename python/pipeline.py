@@ -85,7 +85,7 @@ def run_pipeline(monument_path, output_path):
     
     #Mesh e UVS
     builder = get_mesh_builder(method="trimesh")
-    mesh = builder.build(contours)
+    mesh = builder.build(shapes=all_volumes, height_map=gray_ref)
     
     #Projeção Planar Simple se NÃO Existirem UVs
     if not hasattr(mesh.visual,'uv') or mesh.visual.uv is None:
@@ -95,7 +95,7 @@ def run_pipeline(monument_path, output_path):
       uv -= uv.min(axis=0)
       uv /= uv.max(axis=0)
       
-      mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv)
+      mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv)#Capaz desta linha começar a causar problemas por causa do open3d_builder tipo quase de certeza 
       
     #Aplicar Material PBR  
     material = trimesh.visual.material.PBRMaterial(
