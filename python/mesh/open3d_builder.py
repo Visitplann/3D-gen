@@ -13,7 +13,7 @@ class Open3DBuilder(BaseMeshBuilder):
         os.makedirs(self.debug_dir, exist_ok=True)
       #
     
-    def build(self, contours, height_map=None):
+    def build(self, volumes, height_map=None):
         meshes = []
 
         #DEBUG

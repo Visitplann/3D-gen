@@ -1,3 +1,3 @@
 class BaseMeshBuilder:
-    def build(self, contours, height_map=None):
+    def build(self, volumes, height_map=None):#untested
         raise NotImplementedError
