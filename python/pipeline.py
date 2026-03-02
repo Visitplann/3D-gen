@@ -1,7 +1,9 @@
 from preprocessing import remove_background,preprocess_image, height_map_to_normal_map
 from shape_detection import detect_shapes
 from volume_inference import infer_volumes
-from mesh_builder import build_mesh, apply_texture_to_mesh
+from trimesh_builder import build_trimesh, apply_texture_to_mesh
+from open3d_builder import build_open3d
+from builder_selector import get_mesh_builder
 from export_glb import export_glb
 
 
@@ -82,7 +84,8 @@ def run_pipeline(monument_path, output_path):
     cv2.imwrite(normal_path, normal[:, :, ::-1])
     
     #Mesh e UVS
-    mesh = build_mesh(all_volumes, debug=True)
+    builder = get_mesh_builder(method="trimesh")
+    mesh = builder.build(contours)
     
     #Projeção Planar Simple se NÃO Existirem UVs
     if not hasattr(mesh.visual,'uv') or mesh.visual.uv is None:
