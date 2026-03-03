@@ -19,7 +19,7 @@ def detect_shapes(gray_img):
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
   
   #DEBUG
-  cv2.namedWindow("Test Contour", cv2.WINDOW_NORMAL)
+  cv2.namedWindow("Test Contours", cv2.WINDOW_NORMAL)
   debug_small = cv2.resize(debug_img, (800, 600))
   cv2.imshow("Test Contours", debug_small)
   cv2.waitKey(0)

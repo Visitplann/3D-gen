@@ -15,12 +15,12 @@ class TrimeshBuilder(BaseMeshBuilder):
       os.makedirs(self.debug_dir, exist_ok=True)
     #
     
-  def build(self, volumes):
+  def build(self, volumes, height_map=None):
     
     meshes = []
     
     #DEBUG
-    if debug:
+    if self.debug:
           os.makedirs(debug_dir, exist_ok=True)
     #
           
