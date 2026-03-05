@@ -5,6 +5,7 @@ from mesh.trimesh_builder import TrimeshBuilder
 from mesh.open3d_builder import Open3DBuilder
 from mesh.builder_selector import get_mesh_builder
 from export_glb import export_glb
+from segmentation_sam import segment_object
 
 
 import os
@@ -44,9 +45,13 @@ def run_pipeline(monument_path, output_path):
         if img is None:
           print(f"Aviso: {file_name} não é uma imagem válida. A passar á frente...")
           continue
-    
-        gray, clean = preprocess_image(img_path)
-    
+        
+        #segmentation_sam's function call
+        segmented_img, mask = segment_object(img_path)
+        
+        #preprocess's function call
+        gray, clean = preprocess_image(segmented_img)
+        
         if albedo_ref is None:
             albedo_ref = clean
             gray_ref = gray
@@ -119,8 +124,8 @@ if __name__ == "__main__":
   
   base_dir = os.path.dirname(os.path.abspath(__file__))
 
-  input_folder = os.path.join(base_dir, "..", "input", "monument_01")
-  output_file = os.path.join(base_dir, "output", "monument_01.glb")
+  input_folder = os.path.join(base_dir, "..", "input", "monument_02")
+  output_file = os.path.join(base_dir, "output", "monument_02.glb")
 
   input_folder = os.path.abspath(input_folder)
   output_file = os.path.abspath(output_file)
