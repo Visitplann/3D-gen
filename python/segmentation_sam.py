@@ -8,6 +8,11 @@ model = SAM("sam2_t.pt")
 def segment_object(image_path):
 
     img = cv2.imread(image_path)
+    
+    #FAILSAFE
+    if img is None:
+        raise ValueError(f"Image at {image_path} could not be loaded. Check the path.")
+    
     h, w = img.shape[:2]
 
     input_point = [[w // 2, h // 2]]
