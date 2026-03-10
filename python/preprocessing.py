@@ -57,6 +57,7 @@ def preprocess_image(path):
   cv2.imshow("Test Original", img)
   cv2.waitKey(0)
   cv2.destroyAllWindows()
+  #
   
   img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
   
@@ -69,6 +70,7 @@ def preprocess_image(path):
   cv2.imshow("Test No Background", img)
   cv2.waitKey(0)
   cv2.destroyAllWindows()
+  #
   
   #Bilateral Filter(remove ruido)
   img = cv2.bilateralFilter(img, d = 6, sigmaColor = 10, sigmaSpace = 20)
@@ -81,6 +83,7 @@ def preprocess_image(path):
   cv2.imshow("Test Clean", clean)
   cv2.waitKey(0)
   cv2.destroyAllWindows()
+  #
   
   #Ajuste de Contraste e Brilho
   a = 1.2 #contraste

@@ -100,9 +100,11 @@ def run_pipeline(monument_path, output_path):
         uv -= uv.min(axis=0)
         uv /= uv.max(axis=0)
         
+        #Comment if using open3d builder, this function is only for trimesh
         mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv)#Capaz desta linha começar a causar problemas por causa do open3d_builder tipo quase de certeza 
         
       #Aplicar Material PBR  
+      #Comment if using open3d builder, this function is only for trimesh
       material = trimesh.visual.material.PBRMaterial(
         baseColorTexture = Image.open(albedo_path),
         normalTexture = Image.open(normal_path),
