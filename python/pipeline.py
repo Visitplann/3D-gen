@@ -64,54 +64,54 @@ def run_pipeline(monument_path, output_path):
         print(f"Erro ao processar o ficheiro {file_name}: {expt}")
         continue
     
-      if not all_volumes:
-        print(f"Erro: Nenhum volume foi gerado. A abortar exportação")  
-        return
+    if not all_volumes:
+      print(f"Erro: Nenhum volume foi gerado. A abortar exportação")  
+      return
     
-      print("All volumes count:", len(all_volumes))
-      print("albedo_ref is None?", albedo_ref is None)
-      print("gray_ref is None?", gray_ref is None)
+    print("All volumes count:", len(all_volumes))
+    print("albedo_ref is None?", albedo_ref is None)
+    print("gray_ref is None?", gray_ref is None)
     
-      #Geração de Texturas
+    #Geração de Texturas
       
-      if albedo_ref is None or gray_ref is None:
-        print(f"Erro: Não foi possível gerar texturas.")
-        return
+    if albedo_ref is None or gray_ref is None:
+      print(f"Erro: Não foi possível gerar texturas.")
+      return
       
-      albedo_path = os.path.join(out_dir,"albedo.png")
-      normal_path = os.path.join(out_dir,"normal.png")
+    albedo_path = os.path.join(out_dir,"albedo.png")
+    normal_path = os.path.join(out_dir,"normal.png")
       
-      #Conversão de Espaço de Cores
-      #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
+    #Conversão de Espaço de Cores
+    #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
       
-      cv2.imwrite(albedo_path, albedo_ref[:, :, ::-1])
-      normal = height_map_to_normal_map(gray_ref, 3.0)
-      cv2.imwrite(normal_path, normal[:, :, ::-1])
+    cv2.imwrite(albedo_path, albedo_ref[:, :, ::-1])
+    normal = height_map_to_normal_map(gray_ref, 3.0)
+    cv2.imwrite(normal_path, normal[:, :, ::-1])
     
-      #Mesh e UVS
-      builder = get_mesh_builder(method="trimesh")
-      mesh = builder.build(all_volumes, height_map=gray_ref)
+    #Mesh e UVS
+    builder = get_mesh_builder(method="trimesh")
+    mesh = builder.build(all_volumes, height_map=gray_ref)
     
-      #Projeção Planar Simple se NÃO Existirem UVs
-      if not hasattr(mesh.visual,'uv') or mesh.visual.uv is None:
+    #Projeção Planar Simple se NÃO Existirem UVs
+    if not hasattr(mesh.visual,'uv') or mesh.visual.uv is None:
         
-        #Projeção do Plano XZ
-        uv = mesh.vertices[:, [0, 2]].astype(np.float64)
-        uv -= uv.min(axis=0)
-        uv /= uv.max(axis=0)
+      #Projeção do Plano XZ
+      uv = mesh.vertices[:, [0, 2]].astype(np.float64)
+      uv -= uv.min(axis=0)
+      uv /= uv.max(axis=0)
         
-        #Comment if using open3d builder, this function is only for trimesh
-        mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv)#Capaz desta linha começar a causar problemas por causa do open3d_builder tipo quase de certeza 
-        
-      #Aplicar Material PBR  
       #Comment if using open3d builder, this function is only for trimesh
-      material = trimesh.visual.material.PBRMaterial(
-        baseColorTexture = Image.open(albedo_path),
-        normalTexture = Image.open(normal_path),
-        metallicFactor = 0.0,
-        roughnessFactor = 1.0
-      )
-      mesh.visual.material = material
+      mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv)#Capaz desta linha começar a causar problemas por causa do open3d_builder tipo quase de certeza 
+        
+    #Aplicar Material PBR  
+    #Comment if using open3d builder, this function is only for trimesh
+    material = trimesh.visual.material.PBRMaterial(
+      baseColorTexture = Image.open(albedo_path),
+      normalTexture = Image.open(normal_path),
+      metallicFactor = 0.0,
+      roughnessFactor = 1.0
+    )
+    mesh.visual.material = material
   
     export_glb(mesh, output_path)
     print(f"Sucesso! Ficheiro exportado para: {output_path}")
@@ -126,8 +126,8 @@ if __name__ == "__main__":
   
   base_dir = os.path.dirname(os.path.abspath(__file__))
 
-  input_folder = os.path.join(base_dir, "..", "input", "monument_02")
-  output_file = os.path.join(base_dir, "output", "monument_02.glb")
+  input_folder = os.path.join(base_dir, "..", "input", "monument_01")
+  output_file = os.path.join(base_dir, "output", "monument_01.glb")
 
   input_folder = os.path.abspath(input_folder)
   output_file = os.path.abspath(output_file)
