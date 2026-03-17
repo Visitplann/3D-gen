@@ -49,8 +49,20 @@ def run_pipeline(monument_path, output_path):
         #segmentation_sam's function call
         segmented_img, segmt_mask = segment_object(img)
         
+        #FAILSAFE
+        if segmt_mask is None:
+          print("Segment mask is None or empty.")
+          continue
+        #
+        
         #preprocess's function call
         gray, clean = preprocess_image(segmented_img)
+        
+        #FAILSAFE
+        if gray is None or clean is None:
+          print("Gray or clean image processing failed.")
+          continue
+        #
         
         if albedo_ref is None:
             albedo_ref = clean
@@ -59,8 +71,21 @@ def run_pipeline(monument_path, output_path):
         #Shape detection call
         shapes = detect_shapes(gray)
         
+        #FAILSAFE
+        if not shapes:
+          print("No shapes detected.")
+          continue
+        #
+        
         #Volume inference call
         volumes = infer_volumes(shapes, file_name)
+        
+        #FAILSAFE
+        if not volumes:
+            print(f"Volume não inferido para {file_name}.")
+            continue
+        #
+        
         all_volumes.extend(volumes)
       
       except Exception as expt:

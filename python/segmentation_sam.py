@@ -11,12 +11,18 @@ def segment_object(img):
 
     input_point = [[w // 2, h // 2]]
 
-    results = model.predict(
-        source=img,
-        points=input_point,
-        labels=[1]
-    )
-    
+    try:
+        results = model.predict(
+            source=img,
+            points=input_point,
+            labels=[1]
+        )
+        print(results)
+    except Exception as expt:
+   
+        print("falhou no prect {expt}")
+   
+   
     #FAILSAFE
     if not results or not results[0].masks.data:
         print("Nenhuma máscara foi retornada.")
