@@ -5,7 +5,7 @@ from PIL import Image
 
 
 
-def remove_background(img):
+def remove_background(img):#DEPRECATED
   h,w = img.shape[:2]
   
   mask = np.zeros((h,w), np.uint8)
@@ -45,20 +45,20 @@ def remove_background(img):
   return result
 
 #Will receive either a file path or an image array, and will return the preprocessed grayscale image and the cleaned RGB image without background. The cleaned RGB image can be used as a reference for albedo during volume inference.
-def preprocess_image(path):
+def preprocess_image(img):
   
-  img = cv2.imread(path)
+  #img = cv2.imread(path)
   
   # If a path was passed
-  if isinstance(input_data, str):
-    img = cv2.imread(input_data)
+  #if isinstance(input_data, str):
+  #  img = cv2.imread(input_data)
 
   # If an image array was passed
-  else:
-    img = input_data.copy()
+  #else:
+  #  img = input_data.copy()
       
   #Failsafe Line
-  assert img is not None, "file could not be read, check with os.path.exists()"
+  #assert img is not None, "file could not be read, check with os.path.exists()"
   
   #DEBUG
   cv2.namedWindow("Test Original", cv2.WINDOW_NORMAL)
@@ -71,7 +71,7 @@ def preprocess_image(path):
   img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
   
   #Remove "Background"
-  img = remove_background(img)
+  #img = remove_background(img) DEPRECATED
   
   #DEBUG
   cv2.namedWindow("Test No Background", cv2.WINDOW_NORMAL)

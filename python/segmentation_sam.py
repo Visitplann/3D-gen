@@ -5,32 +5,39 @@ from ultralytics import SAM
 
 model = SAM("sam2_t.pt")
 
-def segment_object(image_path):
-
-    segmented_img, mask = segment_object(img_path)
-    
-    #FAILSAFE
-    if segmented_img is None:
-        print(f"Aviso: Segmentação falhou em {file_name}")
-        continue
+def segment_object(img):
     
     h, w = img.shape[:2]
 
     input_point = [[w // 2, h // 2]]
 
     results = model.predict(
-        source=image_path,
+        source=img,
         points=input_point,
         labels=[1]
     )
-
+    
+    #FAILSAFE
+    if not results or not results[0].masks.data:
+        print("Nenhuma máscara foi retornada.")
+        return None, None
+    #
+    
     mask = results[0].masks.data[0].cpu().numpy()
     mask = (mask * 255).astype(np.uint8)
 
     segmented = cv2.bitwise_and(img, img, mask=mask)
-
+    
+    #Mostrar o resultado na tela
+    res_plotted = results[0].plot()
+    plt.figure(figsize=(10, 10))
+    plt.imshow(cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB))
+    plt.axis('off')
+    plt.show()
+    
     return segmented, mask
-  
+
+
 #SAM TEST   
 #Carregar o modelo SAM 2 
 #model = SAM("sam2_t.pt")

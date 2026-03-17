@@ -21,7 +21,7 @@ class TrimeshBuilder(BaseMeshBuilder):
     
     #DEBUG
     if self.debug:
-          os.makedirs(debug_dir, exist_ok=True)
+          os.makedirs(self.debug_dir, exist_ok=True)
     #
           
     for i, vlm in enumerate(volumes):
@@ -36,9 +36,12 @@ class TrimeshBuilder(BaseMeshBuilder):
       
       #DEBUG: export individual
       if self.debug:
-          debug_path = os.path.join(debug_dir, f"volume_{i}.ply")
+          debug_path = os.path.join(self.debug_dir, f"volume_{i}.ply")
           box.export(debug_path)
-    #
+          
+      if self.debug:
+        trimesh.Scene(meshes).show()
+      #
     
     combined = trimesh.util.concatenate(meshes)
 

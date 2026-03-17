@@ -1,7 +1,12 @@
 import cv2
+import numpy as np
 
 def detect_shapes(gray_img):
   
+  # Preenche pequenos buracos na imagem antes da detecção de contornos
+  filled_img = spot_filler(gray_img)
+  
+  #Detecta bordas
   edges = cv2.Canny(gray_img, 71, 149)
   
   contours,_ = cv2.findContours(
@@ -9,6 +14,12 @@ def detect_shapes(gray_img):
     cv2.RETR_EXTERNAL,#_EXTERNAL for straight up shapes, _TREE if the details are needed for the "height_map_to_normal_map" function
     cv2.CHAIN_APPROX_SIMPLE
   )
+  
+  #FAILSAFE
+  if not contours:  # Verifica se algum contorno foi detectado
+      print("Nenhum contorno encontrado.")
+      return []
+  #
   
   #if len(contours) == 0:
   #    return None
@@ -51,7 +62,7 @@ def texture_cutout(clean_img, mon_shape):
   mask = np.zeros((h, w), dtype=np.uint8)
 
   #Preencher os shapes detectados
-  cv2.drawContours(mask, shapes, -1, 255, thickness = cv2.FILLED)
+  cv2.drawContours(mask, mon_shape, -1, 255, thickness = cv2.FILLED)
 
   # Converte para RGBA
   rgba = cv2.cvtColor(clean_img, cv2.COLOR_RGB2RGBA)
@@ -68,3 +79,13 @@ def texture_cutout(clean_img, mon_shape):
   #
 
   return rgba
+
+def spot_filler(img):
+  
+   # Cria um elemento estruturante
+    kernel = np.ones((5, 5), np.uint8)  # Você pode ajustar o tamanho do kernel conforme necessário
+
+    # Aplica o fechamento morfológico
+    fill_img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+    
+    return fill_img

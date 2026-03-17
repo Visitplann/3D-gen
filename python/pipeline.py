@@ -47,7 +47,7 @@ def run_pipeline(monument_path, output_path):
           continue
         
         #segmentation_sam's function call
-        segmented_img, mask = segment_object(img_path)
+        segmented_img, segmt_mask = segment_object(img)
         
         #preprocess's function call
         gray, clean = preprocess_image(segmented_img)
@@ -55,8 +55,11 @@ def run_pipeline(monument_path, output_path):
         if albedo_ref is None:
             albedo_ref = clean
             gray_ref = gray
-            
+        
+        #Shape detection call
         shapes = detect_shapes(gray)
+        
+        #Volume inference call
         volumes = infer_volumes(shapes, file_name)
         all_volumes.extend(volumes)
       
