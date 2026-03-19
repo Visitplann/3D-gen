@@ -20,7 +20,7 @@ def segment_object(img):
         print(results)
     except Exception as expt:
    
-        print("falhou no prect {expt}")
+        print("Falhou no predict {expt}")
    
    
     #FAILSAFE

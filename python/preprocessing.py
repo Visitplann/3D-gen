@@ -71,14 +71,14 @@ def preprocess_image(img):
   img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
   
   #Remove "Background"
-  #img = remove_background(img) DEPRECATED
+  #img = remove_background(img) #DEPRECATED
   
   #DEBUG
-  cv2.namedWindow("Test No Background", cv2.WINDOW_NORMAL)
-  cv2.resizeWindow("Test No Background", 800, 600)
-  cv2.imshow("Test No Background", img)
-  cv2.waitKey(0)
-  cv2.destroyAllWindows()
+  #cv2.namedWindow("Test No Background", cv2.WINDOW_NORMAL #DEPRECATED
+  #cv2.resizeWindow("Test No Background", 800, 600)
+  #cv2.imshow("Test No Background", img)
+  #cv2.waitKey(0)
+  #cv2.destroyAllWindows()
   #
   
   #Bilateral Filter(remove ruido)
@@ -99,11 +99,19 @@ def preprocess_image(img):
   b = 10 #brilho
   img = cv2.convertScaleAbs(img, alpha = a, beta = b)
   
+  #DEBUG
+  cv2.namedWindow("Test Constraste", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Constraste", 800, 600)
+  cv2.imshow("Test Constraste", img)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
+  
   #Converte para Greyscale
   gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
   
   #Suaviza o background para facilitar a detecção de formas
-  gray = cv2.GaussianBlur(gray, (5,5), 0)
+  #gray = cv2.GaussianBlur(gray, (5,5), 0) #DEPRECATED
   
   #DEBUG
   cv2.namedWindow("Test Gray", cv2.WINDOW_NORMAL)
@@ -111,9 +119,11 @@ def preprocess_image(img):
   cv2.imshow("Test Gray", gray)
   cv2.waitKey(0)
   cv2.destroyAllWindows()
+  #
+  
   os.makedirs("output/debug", exist_ok = True)
   cv2.imwrite("output/debug/no_bg.png", img[:, :, ::-1])
-  #
+  
   
   #USE ONLY FOR SMOOTH MODERN ARCHITECTURE AND MODERN SCULPTURES, NOT SUITABLE FOR ORNATE HISTORIC MONUMENTS BECAUSE OF LARGE AMOUNTS OF DETAILS AND "HEAVY" TEXTURES 
   #Aplica Threshold Otsu para separar o fundo do primeiro plano
