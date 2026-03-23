@@ -1,6 +1,8 @@
 from preprocessing import remove_background,preprocess_image, height_map_to_normal_map
 from shape_detection import detect_shapes
 from volume_inference import infer_volumes
+from mesh.trimesh_builder import TrimeshBuilder
+from mesh.open3d_builder import Open3DBuilder
 from mesh.builder_selector import get_mesh_builder
 from export_glb import export_glb
 from segmentation_sam import segment_object

@@ -3,18 +3,6 @@ import numpy as np
 import os
 from PIL import Image
 
-DEBUG_VISUALS = os.environ.get("PIPELINE_VISUAL_DEBUG") == "1"
-
-
-def _show_debug_image(name, img):
-  if not DEBUG_VISUALS:
-    return
-
-  cv2.namedWindow(name, cv2.WINDOW_NORMAL)
-  cv2.resizeWindow(name, 800, 600)
-  cv2.imshow(name, img)
-  cv2.waitKey(0)
-  cv2.destroyAllWindows()
 
 
 def remove_background(img):#DEPRECATED
@@ -72,7 +60,13 @@ def preprocess_image(img):
   #Failsafe Line
   #assert img is not None, "file could not be read, check with os.path.exists()"
   
-  _show_debug_image("Test Original", img)
+  #DEBUG
+  cv2.namedWindow("Test Original", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Original", 800, 600)
+  cv2.imshow("Test Original", img)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
   
   img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
   
@@ -92,14 +86,26 @@ def preprocess_image(img):
   
   clean = img.copy()
   
-  _show_debug_image("Test Clean", clean)
+  #DEBUG
+  cv2.namedWindow("Test Clean", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Clean", 800, 600)
+  cv2.imshow("Test Clean", clean)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
   
   #Ajuste de Contraste e Brilho
   a = 1.2 #contraste
   b = 10 #brilho
   img = cv2.convertScaleAbs(img, alpha = a, beta = b)
   
-  _show_debug_image("Test Constraste", img)
+  #DEBUG
+  cv2.namedWindow("Test Constraste", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Constraste", 800, 600)
+  cv2.imshow("Test Constraste", img)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
   
   #Converte para Greyscale
   gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -107,7 +113,13 @@ def preprocess_image(img):
   #Suaviza o background para facilitar a detecção de formas
   #gray = cv2.GaussianBlur(gray, (5,5), 0) #DEPRECATED
   
-  _show_debug_image("Test Gray", gray)
+  #DEBUG
+  cv2.namedWindow("Test Gray", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Gray", 800, 600)
+  cv2.imshow("Test Gray", gray)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
   
   os.makedirs("output/debug", exist_ok = True)
   cv2.imwrite("output/debug/no_bg.png", img[:, :, ::-1])

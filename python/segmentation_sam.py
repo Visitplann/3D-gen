@@ -1,17 +1,15 @@
-import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from ultralytics import SAM
 
-DEBUG_VISUALS = os.environ.get("PIPELINE_VISUAL_DEBUG") == "1"
-MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sam2_t.pt"))
-model = SAM(MODEL_PATH)
+model = SAM("sam2_t.pt")
 
 def segment_object(img):
+    
     h, w = img.shape[:2]
+
     input_point = [[w // 2, h // 2]]
-    results = None
 
     try:
         results = model.predict(
@@ -19,31 +17,30 @@ def segment_object(img):
             points=input_point,
             labels=[1]
         )
+        print(results)
     except Exception as expt:
-        print(f"Falhou no predict: {expt}")
-        return None, None
-
-    if not results:
-        print("Nenhum resultado foi retornado.")
-        return None, None
-
-    masks = getattr(results[0], "masks", None)
-    if masks is None or masks.data is None or len(masks.data) == 0:
+   
+        print("Falhou no predict {expt}")
+   
+   
+    #FAILSAFE
+    if not results or results[0].masks is None or results[0].masks.data is None or len(results[0].masks.data) == 0:
         print("Nenhuma máscara foi retornada.")
         return None, None
-
-    mask = masks.data[0].cpu().numpy()
+    #
+    
+    mask = results[0].masks.data[0].cpu().numpy()
     mask = (mask * 255).astype(np.uint8)
 
     segmented = cv2.bitwise_and(img, img, mask=mask)
-
-    if DEBUG_VISUALS:
-        res_plotted = results[0].plot()
-        plt.figure(figsize=(10, 10))
-        plt.imshow(cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB))
-        plt.axis("off")
-        plt.show()
-
+    
+    #Mostrar o resultado na tela
+    res_plotted = results[0].plot()
+    plt.figure(figsize=(10, 10))
+    plt.imshow(cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB))
+    plt.axis('off')
+    plt.show()
+    
     return segmented, mask
 
 

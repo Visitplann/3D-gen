@@ -1,19 +1,5 @@
-import os
 import cv2
 import numpy as np
-
-DEBUG_VISUALS = os.environ.get("PIPELINE_VISUAL_DEBUG") == "1"
-
-
-def _show_debug_image(name, img):
-  if not DEBUG_VISUALS:
-    return
-
-  cv2.namedWindow(name, cv2.WINDOW_NORMAL)
-  cv2.resizeWindow(name, 800, 600)
-  cv2.imshow(name, img)
-  cv2.waitKey(0)
-  cv2.destroyAllWindows()
 
 def detect_shapes(gray_img):
   
@@ -42,8 +28,14 @@ def detect_shapes(gray_img):
   
   debug_img = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
+  
+  #DEBUG
+  cv2.namedWindow("Test Contours", cv2.WINDOW_NORMAL)
   debug_small = cv2.resize(debug_img, (800, 600))
-  _show_debug_image("Test Contours", debug_small)
+  cv2.imshow("Test Contours", debug_small)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
   
   shapes = []
   for cnt in contours:
@@ -78,7 +70,13 @@ def texture_cutout(clean_img, mon_shape):
   # Aplica alpha mask
   rgba[:, :, 3] = mask
   
-  _show_debug_image("Debug Texture", rgba)
+  #DEBUG
+  cv2.namedWindow("Test Texture", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test Texture", 800, 600)
+  cv2.imshow("Debug Texture", rgba)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
 
   return rgba
 
