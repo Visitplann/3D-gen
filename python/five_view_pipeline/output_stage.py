@@ -1,4 +1,4 @@
-"""Write the model, the report and the debug files."""
+"""Escreve no disco o modelo final, o report e o debug."""
 
 import json
 import os
@@ -21,6 +21,7 @@ from .config import (
 
 
 def ensure_output_folders(pipeline_paths):
+    """Cria a árvore de pastas usada pelo pipeline."""
     os.makedirs(pipeline_paths.output_root_dir, exist_ok=True)
     os.makedirs(pipeline_paths.model_dir, exist_ok=True)
     os.makedirs(pipeline_paths.materials_dir, exist_ok=True)
@@ -30,6 +31,7 @@ def ensure_output_folders(pipeline_paths):
 
 
 def save_pipeline_outputs(reconstruction_result, pipeline_paths):
+    """Guarda o material e exporta o GLB final."""
     Image.fromarray(ensure_rgb_image(reconstruction_result.albedo)).save(pipeline_paths.albedo_path)
     if reconstruction_result.normal is not None:
         Image.fromarray(ensure_rgb_image(reconstruction_result.normal)).save(pipeline_paths.normal_path)
@@ -47,6 +49,7 @@ def save_pipeline_outputs(reconstruction_result, pipeline_paths):
 
 
 def ensure_mesh_has_uv(mesh):
+    """Se a malha não tiver UV, cria um mapeamento simples."""
     if hasattr(mesh.visual, "uv") and mesh.visual.uv is not None:
         return
 
@@ -58,6 +61,7 @@ def ensure_mesh_has_uv(mesh):
 
 
 def write_debug_images(debug_dir, view_debug_images, reconstruction_debug_images):
+    """Organiza o debug por vista e por reconstrução."""
     views_dir = os.path.join(debug_dir, "views")
     reconstruction_dir = os.path.join(debug_dir, "reconstruction")
     os.makedirs(views_dir, exist_ok=True)
@@ -98,6 +102,7 @@ def clear_run_debug_folder(debug_run_dir):
 
 
 def write_pipeline_report(report_path, report, reconstruction_result, output_model_path):
+    """Escreve um ficheiro de texto com o resumo da execução."""
     mesh = reconstruction_result.mesh
     extents = mesh.extents.tolist()
 
@@ -154,6 +159,7 @@ def write_pipeline_report(report_path, report, reconstruction_result, output_mod
 
 
 def ensure_rgb_image(image):
+    """Garante que a imagem está em RGB uint8 antes de guardar."""
     rgb_image = np.asarray(image)
     if rgb_image.ndim != 3 or rgb_image.shape[2] != 3:
         raise ValueError("Expected an RGB image with 3 channels.")

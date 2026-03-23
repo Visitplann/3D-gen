@@ -1,4 +1,4 @@
-"""Segment one uploaded view using SAM, with GrabCut as fallback."""
+"""Segmenta uma vista usando SAM e, se falhar, tenta GrabCut."""
 
 from dataclasses import dataclass
 import os
@@ -24,8 +24,9 @@ class SegmentationResult:
 
 
 def segment_view_image(image_bgr, role="vista"):
-    """Try SAM first. If it fails, try GrabCut."""
+    """Tenta SAM primeiro. Se falhar, usa GrabCut."""
     height, width = image_bgr.shape[:2]
+    # O prompt é sempre o centro porque o objeto deve estar centrado na foto.
     center_point = [[width // 2, height // 2]]
 
     try:
@@ -70,8 +71,9 @@ def segment_view_image(image_bgr, role="vista"):
 
 
 def segment_with_grabcut(image_bgr, role):
-    """Fallback used when SAM misses the object."""
+    """Fallback usado quando o SAM não encontra o objeto."""
     original_height, original_width = image_bgr.shape[:2]
+    # Reduzimos a imagem para o GrabCut ser mais leve.
     resize_scale = min(1.0, 1024.0 / max(original_height, original_width))
 
     if resize_scale < 1.0:
@@ -87,6 +89,7 @@ def segment_with_grabcut(image_bgr, role):
     mask = np.zeros((work_height, work_width), np.uint8)
     background_model = np.zeros((1, 65), np.float64)
     foreground_model = np.zeros((1, 65), np.float64)
+    # O retângulo deixa uma margem nas bordas para evitar apanhar o fundo todo.
     start_rect = (
         max(1, int(work_width * 0.12)),
         max(1, int(work_height * 0.12)),
@@ -126,6 +129,7 @@ def segment_with_grabcut(image_bgr, role):
 
 
 def normalize_binary_mask(mask):
+    """Limpa a máscara e rejeita resultados demasiado pequenos."""
     if mask is None:
         return None
 
@@ -152,7 +156,7 @@ def normalize_binary_mask(mask):
 
 
 def collect_mask_warnings(image_bgr, mask, role, source):
-    """Create simple warnings that explain weak input views."""
+    """Cria avisos simples quando a vista parece fraca ou suspeita."""
     warnings = []
     metrics = {
         "source": source,
@@ -164,6 +168,7 @@ def collect_mask_warnings(image_bgr, mask, role, source):
     metrics["aspect_ratio"] = float(height) / float(max(width, 1))
     metrics["border_touch"] = measure_border_touch(mask)
 
+    # A vista de cima não precisa da lógica de sombra de mesa.
     if role == "cima":
         return warnings, metrics
 
@@ -178,6 +183,7 @@ def collect_mask_warnings(image_bgr, mask, role, source):
     row_widths = row_widths[occupied_rows]
     row_brightness = measure_row_brightness(gray_crop[occupied_rows], mask_crop[occupied_rows])
 
+    # Usamos a zona central do objeto como referência estável.
     body_start = max(0, int(round(len(row_widths) * 0.25)))
     body_end = max(body_start + 1, int(round(len(row_widths) * 0.75)))
     body_width = float(np.median(row_widths[body_start:body_end]))
@@ -193,6 +199,7 @@ def collect_mask_warnings(image_bgr, mask, role, source):
     metrics["bottom_brightness_ratio"] = bottom_brightness_ratio
 
     bottom_touch = metrics["border_touch"]["bottom"]
+    # Se a base alarga e escurece muito, pode ser sombra da mesa.
     if bottom_touch > 0.2 and bottom_spread_ratio > 0.95 and bottom_brightness_ratio < 0.82:
         warnings.append(f"{role}: possível sombra da mesa ou base espraiada")
 

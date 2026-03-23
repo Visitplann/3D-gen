@@ -2,15 +2,27 @@
 
 Este projeto lê sempre as 5 imagens de `input/test_obj` e gera um modelo 3D simples em `python/output`.
 
-## O que tens de ter
+## O que precisas
 
 - `Python 3.11`
-- ambiente virtual `.venv`
-- dependências instaladas com `pip install -r requirements.txt`
+- `git`
+- um ambiente virtual `.venv`
 
-## Estrutura esperada do input
+## Como preparar noutro PC
 
-A pasta `input/test_obj` tem de ter estes ficheiros:
+Na primeira vez:
+
+```bash
+git clone <url-do-repo>
+cd 3D-gen
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Input esperado
+
+A pasta `input/test_obj` tem de ter exatamente estes ficheiros:
 
 - `frente.jpg`
 - `traz.jpg`
@@ -18,9 +30,9 @@ A pasta `input/test_obj` tem de ter estes ficheiros:
 - `direita.jpg`
 - `cima.jpg`
 
-Se faltar um destes ficheiros, o pipeline falha com erro claro.
+Se faltar um destes ficheiros, o pipeline falha.
 
-## Como correr
+## Como correr no terminal
 
 Na raiz do projeto:
 
@@ -29,23 +41,48 @@ cd 3D-gen
 PYTHONPATH=python MPLBACKEND=Agg ./.venv/bin/python python/pipeline.py
 ```
 
+## Como correr no VS Code
+
+1. Abre a pasta `3D-gen` no VS Code.
+2. Se o VS Code pedir para escolher Python, escolhe `.venv/bin/python`.
+3. Vai a `Run and Debug`.
+4. Escolhe `Run 5-View Pipeline`.
+5. Carrega em `F5` ou no botão `Run`.
+
+O projeto já traz estes ficheiros:
+
+- `.vscode/settings.json`
+- `.vscode/launch.json`
+
+Esses ficheiros fazem o VS Code usar:
+
+- o Python da `.venv`
+- `PYTHONPATH=python`
+- `MPLBACKEND=Agg`
+
+Importante:
+
+- não uses `Python Debugger: Current File`
+- não tentes correr `.vscode/launch.json`
+- `launch.json` é só configuração do VS Code, não é um script Python
+
 ## Onde ficam os outputs
 
-Depois de correr, os ficheiros ficam aqui:
+Depois de correr, o output fica organizado assim:
 
 - modelo final: `python/output/model/test_obj.glb`
 - material simples: `python/output/materials/albedo.png`
-- report da execução: `python/output/reports/test_obj_report.txt`
-- imagens de debug: `python/output/debug/test_obj/`
+- report: `python/output/reports/test_obj_report.txt`
+- debug: `python/output/debug/test_obj/`
 
 ## Como ler o debug
 
 Dentro de `python/output/debug/test_obj/`:
 
-- `views/` tem as máscaras e overlays de cada vista
+- `views/` tem a máscara e o overlay de cada foto
 - `reconstruction/` tem as projeções usadas para montar o volume
 
-## Comando útil para limpar outputs antigos
+## Como limpar outputs antigos
 
 Se quiseres apagar os outputs antes de correr outra vez:
 
@@ -53,7 +90,11 @@ Se quiseres apagar os outputs antes de correr outra vez:
 rm -rf python/output/model python/output/materials python/output/reports python/output/debug
 ```
 
-## Resultado esperado
+## O que esperar do resultado
 
-O pipeline tenta gerar um objeto simples e fiel à forma exterior principal.
+O pipeline tenta gerar a forma exterior principal do objeto.
 Não tenta modelar detalhes pequenos como portas, ranhuras finas ou logótipos.
+
+É normal aparecerem warnings no terminal.
+Esses warnings não significam sempre erro.
+Servem para avisar quando uma vista está mais fraca, por exemplo a `frente`.

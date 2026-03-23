@@ -1,6 +1,7 @@
-"""Entry point for the fixed 5-view pipeline.
+"""Ponto de entrada do pipeline fixo de 5 vistas.
 
-Run this file to read `input/test_obj` and write the final model to `python/output`.
+Ao correr este ficheiro, o código lê `input/test_obj`
+e escreve o resultado final em `python/output`.
 """
 
 import os
@@ -33,9 +34,12 @@ from five_view_pipeline.view_stage import prepare_views_for_reconstruction
 
 
 def run_pipeline(input_dir, output_root_dir):
+    """Executa todas as etapas do pipeline pela ordem certa."""
     pipeline_paths = build_pipeline_paths(input_dir, output_root_dir)
     ensure_output_folders(pipeline_paths)
+    # Limpa restos do layout antigo para o output ficar sempre previsível.
     remove_old_output_layout(pipeline_paths.output_root_dir)
+    # Limpa apenas o debug desta execução.
     clear_run_debug_folder(pipeline_paths.debug_run_dir)
 
     try:
@@ -80,6 +84,7 @@ def run_pipeline(input_dir, output_root_dir):
 
 
 def build_pipeline_paths(input_dir, output_root_dir):
+    """Centraliza todos os caminhos usados pelo pipeline."""
     model_dir = os.path.join(output_root_dir, MODEL_FOLDER_NAME)
     materials_dir = os.path.join(output_root_dir, MATERIALS_FOLDER_NAME)
     reports_dir = os.path.join(output_root_dir, REPORTS_FOLDER_NAME)
@@ -102,6 +107,7 @@ def build_pipeline_paths(input_dir, output_root_dir):
 
 
 def build_pipeline_report(view_result, reconstruction_result):
+    """Junta num só bloco a informação útil para o report final."""
     report_warnings = dedupe_messages(view_result.warnings + reconstruction_result.warnings)
     return {
         "views": view_result.report_views,
@@ -111,6 +117,7 @@ def build_pipeline_report(view_result, reconstruction_result):
 
 
 def dedupe_messages(messages):
+    """Remove mensagens repetidas sem perder a ordem original."""
     seen = set()
     ordered = []
     for message in messages:

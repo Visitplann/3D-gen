@@ -1,4 +1,4 @@
-"""Build a simple mesh from the five prepared silhouettes."""
+"""Reconstrói uma malha simples a partir das 5 silhuetas preparadas."""
 
 import cv2
 import numpy as np
@@ -22,7 +22,7 @@ from .models import PipelineError, ReconstructionResult
 
 
 def build_compact_case_reconstruction(prepared_views):
-    """Rebuild one compact object from the fixed five-view bundle."""
+    """Reconstrói um objeto compacto usando sempre o mesmo contrato de input."""
     top_view = prepared_views["cima"]
     front_view = prepared_views["frente"]
     back_view = prepared_views["traz"]
@@ -31,6 +31,7 @@ def build_compact_case_reconstruction(prepared_views):
 
     warnings = []
 
+    # Cada par oposto é fundido num perfil só.
     front_profile, front_stats, front_mode, front_warning = combine_opposite_profiles(front_view, back_view, "frente", "traz")
     side_profile, side_stats, side_mode, side_warning = combine_opposite_profiles(left_view, right_view, "esquerda", "direita")
     warnings.extend(item for item in [front_warning, side_warning] if item)
@@ -81,6 +82,7 @@ def build_compact_case_reconstruction(prepared_views):
 
 
 def combine_opposite_profiles(view_a, view_b, role_a, role_b):
+    """Combina duas vistas opostas num perfil vertical comum."""
     profile_a = extract_row_width_profile(view_a)
     profile_b = extract_row_width_profile(view_b)
     difference = np.abs(profile_a - profile_b)
@@ -90,6 +92,7 @@ def combine_opposite_profiles(view_a, view_b, role_a, role_b):
     warning = None
     mode = "balanced"
     if mean_delta > PAIR_MEAN_DELTA_WARNING or peak_delta > PAIR_PEAK_DELTA_WARNING:
+        # Se as duas vistas discordam muito, usamos a interseção para ser conservador.
         warning = f"{role_a}/{role_b}: par inconsistente, a usar envelope conservador"
         mode = "conservative"
         combined_profile = np.minimum(profile_a, profile_b)
@@ -102,6 +105,7 @@ def combine_opposite_profiles(view_a, view_b, role_a, role_b):
 
 
 def extract_row_width_profile(prepared_view):
+    """Transforma a máscara numa lista de larguras ao longo da altura."""
     x, y, width, height = prepared_view.bbox
     crop = prepared_view.mask[y:y + height, x:x + width] > 0
     if crop.size == 0 or height <= 0 or width <= 0:
@@ -119,6 +123,7 @@ def extract_row_width_profile(prepared_view):
 
 
 def build_top_footprint(top_view):
+    """Cria a planta do objeto a partir da vista de cima."""
     x, y, width, height = top_view.bbox
     crop = (top_view.mask[y:y + height, x:x + width] > 0).astype(np.uint8)
     if crop.size == 0:
@@ -139,8 +144,10 @@ def build_top_footprint(top_view):
 
 
 def estimate_case_height(top_view, side_views):
+    """Estima uma altura baixa e plausível para um estojo compacto."""
     base_span = float(max(min(top_view.bbox[2], top_view.bbox[3]), 1))
     raw_ratios = [float(view.bbox[3]) / float(max(view.bbox[2], 1)) for view in side_views]
+    # Damos mais peso ao perfil mais baixo para evitar alturas exageradas.
     compact_ratio = min(min(raw_ratios) * 1.10, float(np.median(raw_ratios)))
     target_ratio = float(np.clip(compact_ratio, *COMPACT_HEIGHT_RATIO_RANGE))
     target_height = base_span * target_ratio
@@ -162,6 +169,7 @@ def build_volume_from_silhouettes(
     front_mode="balanced",
     side_mode="balanced",
 ):
+    """Monta um volume 3D simples cruzando topo, frente/trás e esquerda/direita."""
     max_footprint_side = max(top_footprint.shape[0], top_footprint.shape[1])
     z_samples = int(
         np.clip(
@@ -175,6 +183,7 @@ def build_volume_from_silhouettes(
     front_view, back_view = front_views
     left_view, right_view = side_views
 
+    # O topo define a base de cada fatia.
     top_support = gaussian_filter(top_footprint.astype(np.float32), sigma=0.6)
     front_support = combine_view_projections(
         resize_view_projection_to_floor(front_view, width_resolution, z_samples, target_ratio),
@@ -190,6 +199,7 @@ def build_volume_from_silhouettes(
     front_profile = resample_profile(front_profile, z_samples)[:, None, None]
     side_profile = resample_profile(side_profile, z_samples)[:, None, None]
 
+    # Esta curva simples achata a base e encolhe ligeiramente a tampa.
     height_progress = np.linspace(0.0, 1.0, num=z_samples, dtype=np.float32)
     lid_mix = smoothstep(LID_START_RATIO, 0.96, height_progress)
     base_mix = 1.0 - smoothstep(0.02, 0.16, height_progress)
@@ -215,6 +225,7 @@ def build_volume_from_silhouettes(
 
 
 def resize_view_projection_to_floor(prepared_view, target_width, target_height, target_ratio):
+    """Alinha a vista pela base para todas partilharem o mesmo "chão"."""
     x, y, width, height = prepared_view.bbox
     crop = (prepared_view.mask[y:y + height, x:x + width] > 0).astype(np.float32)
     if crop.size == 0:
@@ -230,6 +241,7 @@ def resize_view_projection_to_floor(prepared_view, target_width, target_height, 
 
 
 def combine_view_projections(primary_projection, opposite_projection, mode="balanced"):
+    """Combina duas projeções já alinhadas."""
     if mode == "conservative":
         combined = np.minimum(primary_projection, opposite_projection)
     else:
@@ -240,6 +252,7 @@ def combine_view_projections(primary_projection, opposite_projection, mode="bala
 
 
 def convert_volume_to_mesh(volume, target_width, target_depth, target_height):
+    """Converte o volume final numa malha e ajusta a escala real."""
     vertices, faces, _, _ = marching_cubes(volume, level=VOLUME_LEVEL)
     vertices = vertices[:, [2, 1, 0]]
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
@@ -254,6 +267,7 @@ def convert_volume_to_mesh(volume, target_width, target_depth, target_height):
     ])
     mesh.apply_translation([-target_width / 2.0, -target_depth / 2.0, 0.0])
 
+    # Esta limpeza reduz problemas normais antes da exportação.
     mesh.merge_vertices()
     if hasattr(mesh, "remove_duplicate_faces"):
         mesh.remove_duplicate_faces()
@@ -272,6 +286,7 @@ def convert_volume_to_mesh(volume, target_width, target_depth, target_height):
 
 
 def flatten_mesh_base(mesh):
+    """Aplana a base para o objeto pousar de forma estável."""
     bounds_min, bounds_max = mesh.bounds
     z_span = float(max(bounds_max[2] - bounds_min[2], 1e-6))
     cutoff = bounds_min[2] + (z_span * 0.04)
@@ -280,6 +295,7 @@ def flatten_mesh_base(mesh):
 
 
 def simplify_mesh(mesh, target_face_count):
+    """Reduz a malha se ela ficar densa demais."""
     if len(mesh.faces) <= target_face_count:
         return mesh
 
@@ -295,6 +311,7 @@ def simplify_mesh(mesh, target_face_count):
 
 
 def build_neutral_albedo(prepared_views):
+    """Cria um material simples com a cor média do objeto."""
     color_samples = []
     for prepared_view in prepared_views.values():
         visible_pixels = prepared_view.masked_rgb[prepared_view.mask > 0]
@@ -313,6 +330,7 @@ def build_neutral_albedo(prepared_views):
 
 
 def build_reconstruction_debug_images(top_footprint, volume):
+    """Guarda projeções simples para perceber a forma reconstruída."""
     top_mask = ((top_footprint > 0.45).astype(np.uint8) * 255)
     top_projection = ((volume.max(axis=0) > VOLUME_LEVEL).astype(np.uint8) * 255)
     front_projection = ((volume.max(axis=1) > VOLUME_LEVEL).astype(np.uint8) * 255)
@@ -333,6 +351,7 @@ def resample_profile(profile, sample_count):
 
 
 def scale_slice(base_slice, scale):
+    """Encolhe ou alarga uma fatia sem mudar o centro."""
     scale = float(np.clip(scale, 0.72, 1.0))
     base_depth, base_width = base_slice.shape
     scaled_width = max(2, int(round(base_width * scale)))
@@ -364,4 +383,3 @@ def dedupe_messages(messages):
             seen.add(message)
             ordered.append(message)
     return ordered
-

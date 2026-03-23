@@ -23,7 +23,10 @@ ENV/
 .ipynb_checkpoints/
 
 # VS Code
-.vscode/
+.vscode/*
+!.vscode/
+!.vscode/settings.json
+!.vscode/launch.json
 
 # Output and build folders
 debug/
@@ -44,4 +47,3 @@ Thumbs.db
 *.bak
 
 # Ignore input/output data folders (except versioned data)
-

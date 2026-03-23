@@ -1,4 +1,4 @@
-"""Prepare each image so the reconstruction step receives clean view data."""
+"""Prepara cada imagem para a etapa de reconstrução."""
 
 import cv2
 import numpy as np
@@ -11,7 +11,7 @@ from .models import PipelineError, PreparedView, ViewPreparationResult
 
 
 def prepare_views_for_reconstruction(loaded_views):
-    """Segment, clean and validate the five input views."""
+    """Segmenta, limpa e valida as 5 vistas antes da reconstrução."""
     prepared_views = {}
     report_views = {}
     warnings = []
@@ -63,9 +63,10 @@ def build_prepared_view(
     segmentation_metrics,
     segmentation_warnings,
 ):
-    """Build one view record with only the fields the next stage needs."""
+    """Cria um registo simples com tudo o que a reconstrução precisa."""
     clean_mask = normalize_binary_mask(mask)
     if role != "cima":
+        # Nas vistas laterais e frontal tentamos cortar sombra de mesa.
         clean_mask = trim_shadow_near_table(clean_mask, masked_gray)
         clean_mask = normalize_binary_mask(clean_mask)
 
@@ -96,7 +97,7 @@ def build_prepared_view(
 
 
 def validate_prepared_view(prepared_view):
-    """Check if the view is usable before reconstruction starts."""
+    """Confirma que a vista tem qualidade mínima para seguir em frente."""
     mask_height, mask_width = prepared_view.mask.shape[:2]
     _, _, width, height = prepared_view.bbox
 
@@ -138,7 +139,7 @@ def build_view_report(prepared_view):
 
 
 def build_view_debug_images(original_bgr, clean_mask):
-    """Create simple debug images for one view."""
+    """Cria imagens simples para perceber o que foi segmentado."""
     overlay = original_bgr.copy()
     color = np.zeros_like(overlay)
     color[:, :] = (32, 180, 64)
@@ -151,6 +152,7 @@ def build_view_debug_images(original_bgr, clean_mask):
 
 
 def normalize_binary_mask(mask):
+    """Limpa ruído da máscara e mantém só a zona principal do objeto."""
     binary_mask = np.where(mask > 0, 255, 0).astype(np.uint8)
     binary_mask = keep_largest_component(binary_mask)
     if np.count_nonzero(binary_mask) == 0:
@@ -168,7 +170,7 @@ def normalize_binary_mask(mask):
 
 
 def trim_shadow_near_table(mask, masked_gray):
-    """Remove dark rows near the bottom that look like table shadow."""
+    """Tenta cortar a sombra escura que aparece por baixo do objeto."""
     x, y, width, height = find_mask_bbox(mask)
     if height <= 0 or width <= 0:
         return mask
@@ -188,11 +190,13 @@ def trim_shadow_near_table(mask, masked_gray):
     row_widths = row_widths[visible_rows]
     row_brightness = measure_row_brightness(gray_crop[visible_rows], mask_crop[visible_rows])
 
+    # Esta zona costuma representar o "corpo" do objeto sem sombra.
     body_start = max(0, int(round(len(row_widths) * 0.25)))
     body_end = max(body_start + 1, int(round(len(row_widths) * 0.70)))
     body_width = float(np.median(row_widths[body_start:body_end]))
     body_brightness = float(np.median(row_brightness[body_start:body_end]))
 
+    # Procuramos mais abaixo por uma mudança brusca de largura e brilho.
     scan_start = max(body_end, int(round(len(visible_rows) * 0.64)))
     window_size = max(12, int(round(len(visible_rows) * 0.035)))
     cut_row_index = None
@@ -214,6 +218,7 @@ def trim_shadow_near_table(mask, masked_gray):
 
 
 def keep_largest_component(mask):
+    """Se existirem várias manchas, mantém só a maior."""
     label_count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
     if label_count <= 1:
         return mask
@@ -223,6 +228,7 @@ def keep_largest_component(mask):
 
 
 def fill_mask_holes(mask):
+    """Preenche pequenos buracos dentro da máscara."""
     filled = mask.copy()
     height, width = filled.shape[:2]
     flood_mask = np.zeros((height + 2, width + 2), dtype=np.uint8)
@@ -247,6 +253,7 @@ def find_mask_centroid(mask):
 
 
 def measure_focus(masked_gray, bbox):
+    """Usa a variância do Laplaciano como medida simples de nitidez."""
     x, y, width, height = bbox
     if width <= 0 or height <= 0:
         return 0.0
@@ -272,4 +279,3 @@ def _dedupe_preserve_order(items):
             seen.add(item)
             ordered.append(item)
     return ordered
-
