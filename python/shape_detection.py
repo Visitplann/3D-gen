@@ -6,6 +6,14 @@ def detect_shapes(gray_img):
   # Preenche pequenos buracos na imagem antes da detecção de contornos
   filled_img = spot_filler(gray_img)
   
+  #DEBUG
+  cv2.namedWindow("Test filled", cv2.WINDOW_NORMAL)
+  cv2.resizeWindow("Test filled", 800, 600)
+  cv2.imshow("Debug filled", rgba)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+  #
+    
   #Detecta bordas
   edges = cv2.Canny(gray_img, 71, 149)
   
@@ -87,5 +95,6 @@ def spot_filler(img):
 
     # Aplica o fechamento morfológico
     fill_img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+    
     
     return fill_img

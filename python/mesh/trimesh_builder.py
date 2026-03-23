@@ -47,7 +47,7 @@ class TrimeshBuilder(BaseMeshBuilder):
 
     #DEBUG: combinado
     if self.debug:
-        combined.export(os.path.join(debug_dir, "combined_debug.ply"))
+        combined.export(os.path.join(self.debug_dir, "combined_debug.ply"))
     #
     
     return combined
