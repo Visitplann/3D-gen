@@ -78,8 +78,23 @@ def run_pipeline(monument_path, output_path):
           continue
         #
         
+        view_type = file_name.lower()
+        
+        if "top" in file_name:
+            view_type = "top"
+        elif "left" in file_name:
+            view_type = "left"
+        elif "right" in file_name:
+            view_type = "right"
+        elif "front" in file_name:
+            view_type = "front"
+        elif "back" in file_name:
+            view_type = "back"
+        else:
+            view_type = "unknown"
+            
         #Volume inference call
-        volumes = infer_volumes(shapes, file_name)
+        volumes = infer_volumes(shapes, view_type)
         
         #FAILSAFE
         if not volumes:
