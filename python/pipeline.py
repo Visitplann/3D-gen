@@ -1,174 +1,129 @@
-from preprocessing import remove_background,preprocess_image, height_map_to_normal_map
-from shape_detection import detect_shapes
-from volume_inference import infer_volumes
-from mesh.trimesh_builder import TrimeshBuilder
-from mesh.open3d_builder import Open3DBuilder
-from mesh.builder_selector import get_mesh_builder
-from export_glb import export_glb
-from segmentation_sam import segment_object
+"""Entry point for the fixed 5-view pipeline.
 
+Run this file to read `input/test_obj` and write the final model to `python/output`.
+"""
 
 import os
-import cv2
-import trimesh
-import numpy as np
-from PIL import Image
 import traceback
 
-def run_pipeline(monument_path, output_path):
-  
-  all_volumes = []
-  albedo_ref = None
-  gray_ref = None
-  
-  valid_extensions=('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
-  
-  out_dir = os.path.dirname(output_path) or "."
-  os.makedirs(out_dir, exist_ok = True)
-  
-  try:
-    image_files = sorted([f for f in os.listdir(monument_path) if f.lower().endswith(valid_extensions)])
-    
-    if not image_files:
-      raise FileNotFoundError(f"Nenhuma imagem encontrada em: {monument_path}")
-      
-    for file_name in image_files:
-    
-      img_path = os.path.join(monument_path, file_name)
-      print(f"Processando: {file_name}...")
+from five_view_pipeline.config import (
+    ALBEDO_FILE_NAME,
+    DEBUG_FOLDER_NAME,
+    DEBUG_RUN_FOLDER_NAME,
+    INPUT_FOLDER_NAME,
+    MATERIALS_FOLDER_NAME,
+    MODEL_FOLDER_NAME,
+    NORMAL_FILE_NAME,
+    OUTPUT_MODEL_NAME,
+    OUTPUT_REPORT_NAME,
+    REPORTS_FOLDER_NAME,
+)
+from five_view_pipeline.input_stage import load_required_view_images
+from five_view_pipeline.models import PipelineError, PipelinePaths
+from five_view_pipeline.output_stage import (
+    clear_run_debug_folder,
+    ensure_output_folders,
+    remove_old_output_layout,
+    save_pipeline_outputs,
+    write_debug_images,
+    write_pipeline_report,
+)
+from five_view_pipeline.reconstruction_stage import build_compact_case_reconstruction
+from five_view_pipeline.view_stage import prepare_views_for_reconstruction
 
-      try:
-        
-        img = cv2.imread(img_path)
-        
-        #FAILSAFE
-        if img is None:
-          print(f"Aviso: {file_name} não é uma imagem válida. A passar á frente...")
-          continue
-        
-        #segmentation_sam's function call
-        segmented_img, segmt_mask = segment_object(img)
-        
-        #FAILSAFE
-        if segmt_mask is None:
-          print("Segment mask is None or empty.")
-          continue
-        #
-        
-        #preprocess's function call
-        gray, clean = preprocess_image(segmented_img)
-        
-        #FAILSAFE
-        if gray is None or clean is None:
-          print("Gray or clean image processing failed.")
-          continue
-        #
-        
-        if albedo_ref is None:
-            albedo_ref = clean
-            gray_ref = gray
-        
-        #Shape detection call
-        shapes = detect_shapes(gray)
-        
-        #FAILSAFE
-        if not shapes:
-          print("No shapes detected.")
-          continue
-        #
-        
-        #Volume inference call
-        volumes = infer_volumes(shapes, file_name)
-        
-        #FAILSAFE
-        if not volumes:
-            print(f"Volume não inferido para {file_name}.")
-            continue
-        #
-        
-        all_volumes.extend(volumes)
-      
-      except Exception as expt:
-        print(f"Erro ao processar o ficheiro {file_name}: {expt}")
-        continue
-    
-    if not all_volumes:
-      print(f"Erro: Nenhum volume foi gerado. A abortar exportação")  
-      return
-    
-    print("All volumes count:", len(all_volumes))
-    print("albedo_ref is None?", albedo_ref is None)
-    print("gray_ref is None?", gray_ref is None)
-    
-    #Geração de Texturas
-      
-    if albedo_ref is None or gray_ref is None:
-      print(f"Erro: Não foi possível gerar texturas.")
-      return
-      
-    albedo_path = os.path.join(out_dir,"albedo.png")
-    normal_path = os.path.join(out_dir,"normal.png")
-      
-    #Conversão de Espaço de Cores
-    #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
-      
-    cv2.imwrite(albedo_path, albedo_ref[:, :, ::-1])
-    normal = height_map_to_normal_map(gray_ref, 3.0)
-    cv2.imwrite(normal_path, normal[:, :, ::-1])
-    
-    #Mesh e UVS
-    builder = get_mesh_builder(method="trimesh")
-    mesh = builder.build(all_volumes, height_map=gray_ref)
-    
-    #Projeção Planar Simple se NÃO Existirem UVs
-    if not hasattr(mesh.visual,'uv') or mesh.visual.uv is None:
-        
-      #Projeção do Plano XZ
-      uv = mesh.vertices[:, [0, 2]].astype(np.float64)
-      uv -= uv.min(axis=0)
-      uv /= uv.max(axis=0)
-        
-      #Comment if using open3d builder, this function is only for trimesh
-      mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv)#Capaz desta linha começar a causar problemas por causa do open3d_builder tipo quase de certeza 
-        
-    #Aplicar Material PBR  
-    #Comment if using open3d builder, this function is only for trimesh
-    material = trimesh.visual.material.PBRMaterial(
-      baseColorTexture = Image.open(albedo_path),
-      normalTexture = Image.open(normal_path),
-      metallicFactor = 0.0,
-      roughnessFactor = 1.0
+
+def run_pipeline(input_dir, output_root_dir):
+    pipeline_paths = build_pipeline_paths(input_dir, output_root_dir)
+    ensure_output_folders(pipeline_paths)
+    remove_old_output_layout(pipeline_paths.output_root_dir)
+    clear_run_debug_folder(pipeline_paths.debug_run_dir)
+
+    try:
+        loaded_views = load_required_view_images(pipeline_paths.input_dir)
+        print("Entrou em 5-view mode.")
+
+        view_result = prepare_views_for_reconstruction(loaded_views)
+        reconstruction_result = build_compact_case_reconstruction(view_result.prepared_views)
+        report = build_pipeline_report(view_result, reconstruction_result)
+
+        save_pipeline_outputs(reconstruction_result, pipeline_paths)
+        write_pipeline_report(
+            report_path=pipeline_paths.report_path,
+            report=report,
+            reconstruction_result=reconstruction_result,
+            output_model_path=pipeline_paths.output_model_path,
+        )
+        write_debug_images(
+            debug_dir=pipeline_paths.debug_run_dir,
+            view_debug_images=view_result.debug_images,
+            reconstruction_debug_images=reconstruction_result.debug_images,
+        )
+
+        for warning in report["warnings"]:
+            print(f"WARNING: {warning}")
+
+        print(
+            "Reconstrução 5-view concluída:",
+            f"{len(reconstruction_result.mesh.vertices)} vertices,",
+            f"{len(reconstruction_result.mesh.faces)} faces",
+        )
+        print(f"Sucesso! Ficheiro exportado para: {pipeline_paths.output_model_path}")
+
+    except PipelineError as error:
+        print("Ocorreu um erro crítico no pipeline:")
+        print(error)
+        traceback.print_exc()
+    except Exception as error:
+        print("Ocorreu um erro inesperado no pipeline:")
+        print(error)
+        traceback.print_exc()
+
+
+def build_pipeline_paths(input_dir, output_root_dir):
+    model_dir = os.path.join(output_root_dir, MODEL_FOLDER_NAME)
+    materials_dir = os.path.join(output_root_dir, MATERIALS_FOLDER_NAME)
+    reports_dir = os.path.join(output_root_dir, REPORTS_FOLDER_NAME)
+    debug_root_dir = os.path.join(output_root_dir, DEBUG_FOLDER_NAME)
+    debug_run_dir = os.path.join(debug_root_dir, DEBUG_RUN_FOLDER_NAME)
+
+    return PipelinePaths(
+        input_dir=input_dir,
+        output_root_dir=output_root_dir,
+        model_dir=model_dir,
+        materials_dir=materials_dir,
+        reports_dir=reports_dir,
+        debug_root_dir=debug_root_dir,
+        debug_run_dir=debug_run_dir,
+        output_model_path=os.path.join(model_dir, OUTPUT_MODEL_NAME),
+        report_path=os.path.join(reports_dir, OUTPUT_REPORT_NAME),
+        albedo_path=os.path.join(materials_dir, ALBEDO_FILE_NAME),
+        normal_path=os.path.join(materials_dir, NORMAL_FILE_NAME),
     )
-    mesh.visual.material = material
-  
-    export_glb(mesh, output_path)
-    print(f"Sucesso! Ficheiro exportado para: {output_path}")
-    
-  except Exception as expt:
-    print("Ocorreu um erro crítico no pipeline:")
-    print(expt)
-    traceback.print_exc()
-  
-  
+
+
+def build_pipeline_report(view_result, reconstruction_result):
+    report_warnings = dedupe_messages(view_result.warnings + reconstruction_result.warnings)
+    return {
+        "views": view_result.report_views,
+        "warnings": report_warnings,
+        "reconstruction": reconstruction_result.metadata,
+    }
+
+
+def dedupe_messages(messages):
+    seen = set()
+    ordered = []
+    for message in messages:
+        if message not in seen:
+            seen.add(message)
+            ordered.append(message)
+    return ordered
+
+
 if __name__ == "__main__":
-  
-  base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    input_dir = os.path.join(project_root, "input", INPUT_FOLDER_NAME)
+    output_root_dir = os.path.join(project_root, "python", "output")
 
-  input_folder = os.path.join(base_dir, "..", "input", "monument_01")
-  output_file = os.path.join(base_dir, "output", "monument_01.glb")
-
-  input_folder = os.path.abspath(input_folder)
-  output_file = os.path.abspath(output_file)
-  
-  #DEBUG
-  print("Resolved input path:", input_folder)
-  
-  #DEBUG
-  #print("Current working directory:", os.getcwd())
-  #print("Trying to access:", os.path.abspath(input_folder))
-  
-  if os.path.exists(input_folder):
-    run_pipeline(input_folder, output_file)
-  else:
-    print(f"Erro: A pasta de entrada {input_folder} não existe.")
- 
+    print(f"Resolved input path: {input_dir}")
+    run_pipeline(input_dir, output_root_dir)

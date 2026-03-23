@@ -3,3 +3,6 @@ numpy
 trimesh
 pillow
 scikit-image
+scipy
+matplotlib
+ultralytics
