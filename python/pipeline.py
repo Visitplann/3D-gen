@@ -69,7 +69,8 @@ def run_pipeline(monument_path, output_path):
             gray_ref = gray
         
         #Shape detection call
-        shapes = detect_shapes(gray)
+        #shapes = detect_shapes(gray)
+        shapes = detect_shapes(segmt_mask)
         
         #FAILSAFE
         if not shapes:

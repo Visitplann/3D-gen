@@ -15,20 +15,25 @@ def _show_debug_image(name, img):
   cv2.waitKey(0)
   cv2.destroyAllWindows()
 
-def detect_shapes(gray_img):
+def detect_shapes(segmask):#originaly gray_img
+  
+  # Ensure binary mask
+  _, segmask = cv2.threshold(segmask, 127, 255, cv2.THRESH_BINARY)
   
   # Preenche pequenos buracos na imagem antes da detecção de contornos
-  filled_img = spot_filler(gray_img)
+  filled_img = spot_filler(segmask)
   
   #Detecta bordas
-  edges = cv2.Canny(gray_img, 71, 149)
+  #edges = cv2.Canny(gray_img, 71, 149)
   
   contours,_ = cv2.findContours(
-    edges,
+    filled_img,
     cv2.RETR_EXTERNAL,#_EXTERNAL for straight up shapes, _TREE if the details are needed for the "height_map_to_normal_map" function
     cv2.CHAIN_APPROX_SIMPLE
   )
   
+  contours = [c for c in contours if cv2.contourArea(c) > 500]
+
   #FAILSAFE
   if not contours:  # Verifica se algum contorno foi detectado
       print("Nenhum contorno encontrado.")
@@ -40,20 +45,32 @@ def detect_shapes(gray_img):
 
   #largest = max(contours, key=cv2.contourArea)
   
-  debug_img = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
+  #DEBUG
+  debug_img = cv2.cvtColor(filled_img, cv2.COLOR_GRAY2BGR)
   cv2.drawContours(debug_img,contours,-1,(0,255,0),3)
-  
   debug_small = cv2.resize(debug_img, (800, 600))
   _show_debug_image("Test Contours", debug_small)
+  #
   
-  shapes = []
-  for cnt in contours:
-    area = cv2.contourArea(cnt)
-    if area < 500:
-      continue
+  # Get largest contour
+  largest = max(contours, key=cv2.contourArea)
+
+  approx = cv2.approxPolyDP(
+      largest,
+      0.01 * cv2.arcLength(largest, True),
+      True
+  )
+
+  return [approx]
+  
+  #shapes = []
+  #for cnt in contours:
+  #  area = cv2.contourArea(cnt)
+  #  if area < 500:
+  #    continue
     
-    approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
-    shapes.append(approx)
+  #  approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
+  # shapes.append(approx)
     
   #Para um Unico Contour Solido em Vez de Dividido(subtitui o ciclo "for" acima, nao sei se funciona bem com o "mesh_builder" mas deixa a funcao texture_cutout mais pequena e deve funcionar bem com a funcao "height_map_to_normal_map" que inclusive talvez tenha de ser mudada de sitio)
   #largest = max(contours, key=cv2.contourArea)
@@ -61,7 +78,7 @@ def detect_shapes(gray_img):
   #
   #return [approx]
 
-  return shapes
+  #return shapes
   
 #Para Recortar a Clean Image Baseada nos Contours de "detect_shapes" para a Texture
                   #clean image, monument shape(talvez monument edges em vez de shape mas tem de se ver a preview primeiro)
