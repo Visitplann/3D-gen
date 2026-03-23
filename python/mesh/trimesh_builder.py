@@ -3,7 +3,16 @@ import os
 import numpy as np
 from PIL import Image
 from mesh.base_mesh_builder import BaseMeshBuilder
-from shapely.geometry import Polygon
+#from shapely.geometry import Polygon
+import sys
+
+#Import Tester
+#print("PYTHON EXEC:", sys.executable)
+#try:
+#    from shapely.geometry import Polygon
+#    print("Shapely import OK")
+#except Exception as e:
+#    print("Shapely import FAILED:", e)
 
 class TrimeshBuilder(BaseMeshBuilder):
   def __init__(self, debug=False, debug_dir="output/debug"):
@@ -48,9 +57,14 @@ class TrimeshBuilder(BaseMeshBuilder):
     # Fix invalid polygons
     if not footprint.is_valid:
         footprint = footprint.buffer(0)
-
+        
+        
     # Create mesh by extrusion
-    mesh = trimesh.creation.extrude_polygon(footprint, height)
+    mesh = trimesh.creation.extrude_polygon(
+    footprint,
+    height,
+    engine="earcut"
+    )
 
     return mesh
   
