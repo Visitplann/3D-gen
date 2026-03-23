@@ -1,9 +1,10 @@
 import trimesh
+import cv2
 import os
 import numpy as np
 from PIL import Image
 from mesh.base_mesh_builder import BaseMeshBuilder
-#from shapely.geometry import Polygon
+from shapely.geometry import Polygon
 import sys
 
 #Import Tester
@@ -68,7 +69,7 @@ class TrimeshBuilder(BaseMeshBuilder):
 
     return mesh
   
-  #def build(self, volumes, height_map=None): #DEPRECAED
+  #def build(self, volumes, height_map=None): #DEPRECATED
     
   #  meshes = []
     
@@ -104,7 +105,7 @@ class TrimeshBuilder(BaseMeshBuilder):
     #
     
  #   return combined
-
+ 
   def apply_texture_to_mesh(mesh, texture_path):
     teximg = Image.open(texture_path)
     mat=trimesh.visual.texture.SimpleMaterial(
@@ -123,3 +124,4 @@ class TrimeshBuilder(BaseMeshBuilder):
     
     return mesh
 
+ 

@@ -1,5 +1,6 @@
 from preprocessing import remove_background,preprocess_image, height_map_to_normal_map
 from shape_detection import detect_shapes
+from shape_detection import texture_cutout
 from volume_inference import infer_volumes
 from mesh.trimesh_builder import TrimeshBuilder
 from mesh.open3d_builder import Open3DBuilder
@@ -77,7 +78,7 @@ def run_pipeline(monument_path, output_path):
           print("No shapes detected.")
           continue
         #
-        
+      
         view_type = file_name.lower()
         
         if "top" in file_name:
@@ -111,13 +112,13 @@ def run_pipeline(monument_path, output_path):
     if not all_volumes:
       print(f"Erro: Nenhum volume foi gerado. A abortar exportação")  
       return
-    
+
     print("All volumes count:", len(all_volumes))
     print("albedo_ref is None?", albedo_ref is None)
     print("gray_ref is None?", gray_ref is None)
     
     #Geração de Texturas
-      
+    
     if albedo_ref is None or gray_ref is None:
       print(f"Erro: Não foi possível gerar texturas.")
       return
@@ -127,8 +128,9 @@ def run_pipeline(monument_path, output_path):
       
     #Conversão de Espaço de Cores
     #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
-      
-    cv2.imwrite(albedo_path, albedo_ref[:, :, ::-1])
+    
+    albedo = texture_cutout(clean, shapes)  
+    cv2.imwrite(albedo_path, albedo[:, :, ::-1])
     normal = height_map_to_normal_map(gray_ref, 3.0)
     cv2.imwrite(normal_path, normal[:, :, ::-1])
     

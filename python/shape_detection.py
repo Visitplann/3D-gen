@@ -15,7 +15,7 @@ def _show_debug_image(name, img):
   cv2.waitKey(0)
   cv2.destroyAllWindows()
 
-def detect_shapes(segmask):#originaly gray_img
+def detect_shapes(segmask):#originally gray_img
   
   # Ensure binary mask
   _, segmask = cv2.threshold(segmask, 127, 255, cv2.THRESH_BINARY)
@@ -80,32 +80,49 @@ def detect_shapes(segmask):#originaly gray_img
 
   #return shapes
   
+  
 #Para Recortar a Clean Image Baseada nos Contours de "detect_shapes" para a Texture
                   #clean image, monument shape(talvez monument edges em vez de shape mas tem de se ver a preview primeiro)
-def texture_cutout(clean_img, mon_shape):
-  h, w = clean_img.shape[:2]
-
-  mask = np.zeros((h, w), dtype=np.uint8)
-
-  #Preencher os shapes detectados
-  cv2.drawContours(mask, mon_shape, -1, 255, thickness = cv2.FILLED)
-
-  # Converte para RGBA
-  rgba = cv2.cvtColor(clean_img, cv2.COLOR_RGB2RGBA)
-  
-  # Aplica alpha mask
-  rgba[:, :, 3] = mask
-  
-  _show_debug_image("Debug Texture", rgba)
-
-  return rgba
-
+ 
+ 
 def spot_filler(img):
-  
-   # Cria um elemento estruturante
+
+    # Cria um elemento estruturante
     kernel = np.ones((5, 5), np.uint8)  # Você pode ajustar o tamanho do kernel conforme necessário
 
     # Aplica o fechamento morfológico
     fill_img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+
+    return fill_img                   
+                    
+                    
+def texture_cutout(clean_img, mon_shape):
+    """
+    Applies the detected shape(s) as an alpha mask to the clean image,
+    making everything outside the shapes fully transparent.
+    """
+
+    h, w = clean_img.shape[:2]
+
+    # Create blank mask
+    mask = np.zeros((h, w), dtype=np.uint8)
+
+    # Fill contours
+    cv2.drawContours(mask, mon_shape, -1, 255, thickness=cv2.FILLED)
+
+    # Convert to RGBA depending on input channels
+    if clean_img.shape[2] == 3:
+        rgba = cv2.cvtColor(clean_img, cv2.COLOR_BGR2BGRA)  # OpenCV default BGR
+    else:
+        rgba = clean_img.copy()  # already RGBA
+
+    # Apply alpha mask
+    rgba[:, :, 3] = mask
+
+    _show_debug_image("Debug Texture", rgba)
+
+    return rgba
+
+
     
-    return fill_img
+
