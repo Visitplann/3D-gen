@@ -1,8 +1,10 @@
+import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from ultralytics import SAM
 
+DEBUG_VISUALS = os.environ.get("PIPELINE_VISUAL_DEBUG") == "1"
 model = SAM("sam2_t.pt")
 
 def segment_object(img):
@@ -35,11 +37,12 @@ def segment_object(img):
     segmented = cv2.bitwise_and(img, img, mask=mask)
     
     #Mostrar o resultado na tela
-    res_plotted = results[0].plot()
-    plt.figure(figsize=(10, 10))
-    plt.imshow(cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB))
-    plt.axis('off')
-    plt.show()
+    if DEBUG_VISUALS:
+        res_plotted = results[0].plot()
+        plt.figure(figsize=(10, 10))
+        plt.imshow(cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB))
+        plt.axis('off')
+        plt.show()
     
     return segmented, mask
 
