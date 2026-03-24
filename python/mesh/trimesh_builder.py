@@ -2,6 +2,7 @@ import trimesh
 import os
 import numpy as np
 from PIL import Image
+from shapely.geometry import Polygon
 from mesh.base_mesh_builder import BaseMeshBuilder
 
 class TrimeshBuilder(BaseMeshBuilder):
