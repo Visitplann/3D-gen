@@ -70,3 +70,55 @@ class TrimeshBuilder(BaseMeshBuilder):
     
     return mesh
 
+"""  def __init__(self, debug=False, debug_dir="output/debug"):
+    
+    #DEBUG
+    self.debug = debug
+    self.debug_dir = debug_dir
+    
+    if self.debug:
+      os.makedirs(self.debug_dir, exist_ok=True)
+    #
+  
+  def build(self, volumes, height_map=None):
+
+    footprint = None
+    height = None
+
+    # Separate data
+    for vlm in volumes:
+        if vlm["type"] == "footprint":
+            contour = vlm["contour"]
+            pts = contour.squeeze()
+            
+            #Use if the texture is upsidedown
+            #pts = contour.squeeze().astype(np.float64)
+            #pts[:, 1] *= -1
+            #footprint = Polygon(pts)
+            
+            if len(pts) >= 3:
+                footprint = Polygon(pts)
+
+        elif vlm["type"] == "profile":
+            height = vlm["height"]
+
+    # FAILSAFE
+    if footprint is None:
+        raise ValueError("No footprint found for extrusion")
+
+    if height is None:
+        height = 50  # fallback height
+
+    # Fix invalid polygons
+    if not footprint.is_valid:
+        footprint = footprint.buffer(0)
+        
+        
+    # Create mesh by extrusion
+    mesh = trimesh.creation.extrude_polygon(
+    footprint,
+    height,
+    engine="earcut"
+    )
+
+    return mesh"""
