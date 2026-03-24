@@ -69,65 +69,26 @@ class TrimeshBuilder(BaseMeshBuilder):
 
     return mesh
   
-  #def build(self, volumes, height_map=None): #DEPRECATED
-    
-  #  meshes = []
-    
-    #DEBUG
-  #  if self.debug:
-  #        os.makedirs(self.debug_dir, exist_ok=True)
-    #
-          
-  #  for i, vlm in enumerate(volumes):
-      
-  #    box = trimesh.creation.box(
-  #      extents=[vlm["width"], vlm["depth"], vlm["height"]]
- #     )
-      
- #     box.apply_translation([vlm["x"], 0, vlm["y"]])
-      
- #     meshes.append(box)
-      
-      #DEBUG: export individual
- #     if self.debug:
- #         debug_path = os.path.join(self.debug_dir, f"volume_{i}.ply")
- #         box.export(debug_path)
-          
-  #    if self.debug:
-  #      trimesh.Scene(meshes).show()
-      #
-    
- #   combined = trimesh.util.concatenate(meshes)
-
-    #DEBUG: combinado
- #   if self.debug:
- #       combined.export(os.path.join(debug_dir, "combined_debug.ply"))
-    #
-    
- #   return combined
  
- """def apply_texture_to_mesh(mesh, texture_path):
-    teximg = Image.open(texture_path)
-    mat=trimesh.visual.texture.SimpleMaterial(
-      image = teximg
-    )
+ #def apply_texture_to_mesh(mesh, texture_path):
+  #  teximg = Image.open(texture_path)
+  #  mat=trimesh.visual.texture.SimpleMaterial(
+  #    image = teximg
+  #  )
     
     #UV Simples
-    uv=mesh.vertices[:, [0,2]]
-    uv-=uv.min(axis = 0)
-    uv/=uv.max(axis = 0)
+ #   uv=mesh.vertices[:, [0,2]]
+  #  uv-=uv.min(axis = 0)
+  #  uv/=uv.max(axis = 0)
     
-    mesh.visual = trimesh.visual.texture.TextureVisuals(
-      uv = uv,
-      material = mat
-    )
+   # mesh.visual = trimesh.visual.texture.TextureVisuals(
+   #   uv = uv,
+    #  material = mat
+   # )
     
-    return mesh"""
+    #return mesh
 
-  
-
-
-  def apply_texture_to_mesh(mesh, texture_path, normal_path=None):
+  def apply_texture_to_mesh(self, mesh, texture_path, normal_path=None):
 
       # --- UV mapping (box projection) ---
       normals = mesh.vertex_normals

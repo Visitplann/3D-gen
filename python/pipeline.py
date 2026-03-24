@@ -129,37 +129,23 @@ def run_pipeline(monument_path, output_path):
     #Conversão de Espaço de Cores
     #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
     
-    albedo = texture_cutout(clean, shapes)  
+    albedo = texture_cutout(albedo_ref, shapes)  
     cv2.imwrite(albedo_path, albedo[:, :, ::-1])
-    normal = height_map_to_normal_map(gray_ref, 3.0)
+    
+    #normal with texture cutout 1
+    graycut = cv2.cvtColor(albedo, cv2.COLOR_RGB2GRAY)
+    #normal with texture cutout 2
+    #graycut = texture_cutout(gray_ref, shapes) 
+
+    normal = height_map_to_normal_map(graycut, 3.0)
     cv2.imwrite(normal_path, normal[:, :, ::-1])
     
     #Mesh e UVS
     builder = get_mesh_builder(method="trimesh")
     mesh = builder.build(all_volumes, height_map=gray_ref)
-    
-    #Projeção Planar Simple se NÃO Existirem UVs
-    if not hasattr(mesh.visual,'uv') or mesh.visual.uv is None:
-        
-      #Projeção do Plano XZ
-      uv = mesh.vertices[:, [0, 2]].astype(np.float64)
-      uv -= uv.min(axis=0)
-      uv /= uv.max(axis=0)
-        
-      #Comment if using open3d builder, this function is only for trimesh
-      mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv)#Capaz desta linha começar a causar problemas por causa do open3d_builder tipo quase de certeza 
-        
-    #Aplicar Material PBR  
-    #Comment if using open3d builder, this function is only for trimesh
-    material = trimesh.visual.material.PBRMaterial(
-      baseColorTexture = Image.open(albedo_path),
-      normalTexture = Image.open(normal_path),
-      metallicFactor = 0.0,
-      roughnessFactor = 1.0
-    )
-    mesh.visual.material = material
+    objtexnorm = builder.apply_texture_to_mesh(mesh,albedo_path,normal_path)
   
-    export_glb(mesh, output_path)
+    export_glb(objtexnorm, output_path)
     print(f"Sucesso! Ficheiro exportado para: {output_path}")
     
   except Exception as expt:
