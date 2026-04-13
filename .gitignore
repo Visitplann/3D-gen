@@ -40,6 +40,8 @@ Thumbs.db
 *.ply
 *.tmp
 *.bak
+*.png
+#*.jpg
 
 # Ignore input/output data folders (except versioned data)
 

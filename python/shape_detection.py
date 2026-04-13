@@ -96,7 +96,7 @@ def spot_filler(img):
     return fill_img                   
                     
                     
-def texture_cutout(clean_img, mon_shape):
+def texture_cutout(clean_img, mon_shapes):
     """
     Applies the detected shape(s) as an alpha mask to the clean image,
     making everything outside the shapes fully transparent.
@@ -104,21 +104,23 @@ def texture_cutout(clean_img, mon_shape):
 
     h, w = clean_img.shape[:2]
 
-    # Create blank mask
+     # Create blank mask
     mask = np.zeros((h, w), dtype=np.uint8)
 
-    # Fill contours
-    cv2.drawContours(mask, mon_shape, -1, 255, thickness=cv2.FILLED)
+    # Draw ALL shapes into the SAME mask
+    for shape in mon_shapes:
+        cv2.drawContours(mask, [shape], -1, 255, thickness=cv2.FILLED)
 
-    # Convert to RGBA depending on input channels
+    # Convert to RGBA (only once)
     if clean_img.shape[2] == 3:
-        rgba = cv2.cvtColor(clean_img, cv2.COLOR_BGR2BGRA)  # OpenCV default BGR
+        rgba = cv2.cvtColor(clean_img, cv2.COLOR_BGR2BGRA)
     else:
-        rgba = clean_img.copy()  # already RGBA
+        rgba = clean_img.copy()
 
-    # Apply alpha mask
+    # Apply mask as alpha channel
     rgba[:, :, 3] = mask
 
+    # Debug once
     _show_debug_image("Debug Texture", rgba)
 
     return rgba

@@ -18,9 +18,11 @@ import traceback
 
 def run_pipeline(monument_path, output_path):
   
+  all_shapes = []
   all_volumes = []
-  albedo_ref = None
-  gray_ref = None
+  
+  textures={}
+  
   
   valid_extensions=('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
   
@@ -47,6 +49,26 @@ def run_pipeline(monument_path, output_path):
           print(f"Aviso: {file_name} não é uma imagem válida. A passar á frente...")
           continue
         
+        #Validate file names
+        name = file_name.lower()
+
+        if "top" in name:
+            view_type = "top"
+        elif "left" in name:
+            view_type = "left"
+        elif "right" in name:
+            view_type = "right"
+        elif "front" in name:
+            view_type = "front"
+        elif "back" in name:
+            view_type = "back"
+        else:
+           #DEBUG
+            print(f"{file_name} → detected as {view_type}")
+            print(f"Unknown view type for {file_name}")
+            continue
+          
+          
         #segmentation_sam's function call
         segmented_img, segmt_mask = segment_object(img)
         
@@ -65,35 +87,47 @@ def run_pipeline(monument_path, output_path):
           continue
         #
         
-        if albedo_ref is None:
-            albedo_ref = clean
-            gray_ref = gray
-        
         #Shape detection call
         #shapes = detect_shapes(gray)
         shapes = detect_shapes(segmt_mask)
-        
+                
         #FAILSAFE
         if not shapes:
           print("No shapes detected.")
           continue
         #
-      
-        view_type = file_name.lower()
         
-        if "top" in file_name:
-            view_type = "top"
-        elif "left" in file_name:
-            view_type = "left"
-        elif "right" in file_name:
-            view_type = "right"
-        elif "front" in file_name:
-            view_type = "front"
-        elif "back" in file_name:
-            view_type = "back"
-        else:
-            view_type = "unknown"
-            
+        #Geração de Texturas
+        albedo_path = os.path.join(out_dir, f"{view_type}_albedo.png")
+        normal_path = os.path.join(out_dir, f"{view_type}_normal.png")
+          
+        #Conversão de Espaço de Cores
+        #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
+        
+        albedo = texture_cutout(clean, shapes)  
+        cv2.imwrite(albedo_path, albedo[:, :, ::-1])
+
+        #normal with texture cutout
+        graycut = texture_cutout(gray, shapes) 
+
+        normal = height_map_to_normal_map(graycut, 3.0)
+        cv2.imwrite(normal_path, normal[:, :, ::-1])
+        
+        
+        textures = {
+          "top": ("top_albedo.png", "top_normal.png"),
+          "front": (...),
+          "back":(...),
+          "left": (...),
+          "right":(...)
+        } 
+        
+        #Shapes array- adding shapes
+        all_shapes.extend(shapes)
+
+        
+        textures[view_type] = (albedo_path, normal_path)
+        
         #Volume inference call
         volumes = infer_volumes(shapes, view_type)
         
@@ -114,36 +148,11 @@ def run_pipeline(monument_path, output_path):
       return
 
     print("All volumes count:", len(all_volumes))
-    print("albedo_ref is None?", albedo_ref is None)
-    print("gray_ref is None?", gray_ref is None)
-    
-    #Geração de Texturas
-    
-    if albedo_ref is None or gray_ref is None:
-      print(f"Erro: Não foi possível gerar texturas.")
-      return
-      
-    albedo_path = os.path.join(out_dir,"albedo.png")
-    normal_path = os.path.join(out_dir,"normal.png")
-      
-    #Conversão de Espaço de Cores
-    #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
-    
-    albedo = texture_cutout(albedo_ref, shapes)  
-    cv2.imwrite(albedo_path, albedo[:, :, ::-1])
-    
-    #normal with texture cutout 1
-    graycut = cv2.cvtColor(albedo, cv2.COLOR_RGB2GRAY)
-    #normal with texture cutout 2
-    #graycut = texture_cutout(gray_ref, shapes) 
 
-    normal = height_map_to_normal_map(graycut, 3.0)
-    cv2.imwrite(normal_path, normal[:, :, ::-1])
-    
     #Mesh e UVS
     builder = get_mesh_builder(method="trimesh")
-    mesh = builder.build(all_volumes, height_map=gray_ref)
-    objtexnorm = builder.apply_texture_to_mesh(mesh,albedo_path,normal_path)
+    mesh = builder.build(all_volumes, height_map=gray)
+    objtexnorm = builder.apply_texture_to_mesh(mesh,textures)
   
     export_glb(objtexnorm, output_path)
     print(f"Sucesso! Ficheiro exportado para: {output_path}")
