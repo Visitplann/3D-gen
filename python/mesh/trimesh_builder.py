@@ -16,155 +16,119 @@ import sys
 #    print("Shapely import FAILED:", e)
 
 class TrimeshBuilder(BaseMeshBuilder):
-  def __init__(self, debug=False, debug_dir="output/debug"):
-    
-    #DEBUG
-    self.debug = debug
-    self.debug_dir = debug_dir
-    
-    if self.debug:
-      os.makedirs(self.debug_dir, exist_ok=True)
-    #
-  
-  def build(self, volumes, height_map=None):
-
-    footprint = None
-    height = None
-
-    # Separate data
-    for vlm in volumes:
-        if vlm["type"] == "footprint":
-            contour = vlm["contour"]
-            pts = contour.squeeze()
-            
-            #Use if the texture is upsidedown
-            #pts = contour.squeeze().astype(np.float64)
-            #pts[:, 1] *= -1
-            #footprint = Polygon(pts)
-            
-            if len(pts) >= 3:
-                footprint = Polygon(pts)
-
-        elif vlm["type"] == "profile":
-            height = vlm["height"]
-
-    # FAILSAFE
-    if footprint is None:
-        raise ValueError("No footprint found for extrusion")
-
-    if height is None:
-        height = 50  # fallback height
-
-    # Fix invalid polygons
-    if not footprint.is_valid:
-        footprint = footprint.buffer(0)
+    def __init__(self, debug=False, debug_dir="output/debug"):
         
+        #DEBUG
+        self.debug = debug
+        self.debug_dir = debug_dir
         
-    # Create mesh by extrusion
-    mesh = trimesh.creation.extrude_polygon(
-    footprint,
-    height,
-    engine="earcut"
-    )
+        if self.debug:
+         os.makedirs(self.debug_dir, exist_ok=True)
+        
+    def build(self, volumes):
 
-    return mesh
-  
- 
- #def apply_texture_to_mesh(mesh, texture_path):
-  #  teximg = Image.open(texture_path)
-  #  mat=trimesh.visual.texture.SimpleMaterial(
-  #    image = teximg
-  #  )
-    
-    #UV Simples
- #   uv=mesh.vertices[:, [0,2]]
-  #  uv-=uv.min(axis = 0)
-  #  uv/=uv.max(axis = 0)
-    
-   # mesh.visual = trimesh.visual.texture.TextureVisuals(
-   #   uv = uv,
-    #  material = mat
-   # )
-    
-    #return mesh
+        meshes = []
+        footprints = []
+        profiles = []
 
-  #def apply_texture_to_mesh(self, mesh, texture_path, normal_path=None):
+        # --- Separate data ---
+        for vlm in volumes:
+            if vlm["type"] == "footprint":
+                pts = vlm["contour"].squeeze()
 
-      # --- UV mapping (box projection) ---
-      #normals = mesh.vertex_normals
-      #uv = np.zeros((len(mesh.vertices), 2))
+                if len(pts) >= 3:
+                    poly = Polygon(pts)
 
-      #for i, n in enumerate(normals):
-          #x, y, z = mesh.vertices[i]
-          #nx, ny, nz = np.abs(n)
+                    if not poly.is_valid:
+                        poly = poly.buffer(0)
 
-          #if nx > ny and nx > nz:
-              #uv[i] = [y, z]
-          #elif ny > nx and ny > nz:
-              #uv[i] = [x, z]
-          #else:
-              #uv[i] = [x, y]
+                    footprints.append(poly)
 
-      #uv -= uv.min(axis=0)
-      #uv /= np.maximum(uv.max(axis=0), 1e-8)
+            elif vlm["type"] == "profile":
+                profiles.append(vlm)
 
-      # --- Material ---
-      #if normal_path:
-          #material = trimesh.visual.material.PBRMaterial(
-              #baseColorTexture=Image.open(texture_path),
-              #normalTexture=Image.open(normal_path),
-              #metallicFactor=0.0,
-              #roughnessFactor=1.0
-          #)
-      #else:
-          #material = trimesh.visual.material.SimpleMaterial(
-              #image=Image.open(texture_path)
-          #)
+        if not footprints:
+            raise ValueError("No footprint found for extrusion")
 
-      # --- Apply ---
-      #mesh.visual = trimesh.visual.texture.TextureVisuals(
-          #uv=uv,
-          #material=material
-      #)
+        
+        matches = self.match_profiles_to_footprints(footprints, profiles)
 
-      #return mesh
-  
-  def apply_texture_to_mesh(self, mesh, texture_path, normal_path=None):
-    textures = {
-    "top": ("top_albedo.png", "top_normal.png"),
-    "front": (...),
-    "back":(...),
-    "left": (...),
-    "right":(...)
-    }
-    
-    #textures = {
-    #   "top": (texture_path, normal_path),
-    #   "side": (texture_path, normal_path)
-    # }
+        for footprint, profile in matches:
 
-    faces_top = []
-    faces_side = []
+            height = profile["height"] if profile else 50
 
-    
-    for i, normal in enumerate(mesh.face_normals):
-        nx, ny, nz = np.abs(normal)
+            mesh = trimesh.creation.extrude_polygon(
+                footprint,
+                height,
+                engine="earcut"
+            )
 
-        if nz > 0.7:
-            faces_top.append(i)
-        else:
-            faces_side.append(i)
+            meshes.append(mesh)
 
-    meshes = []
+        return trimesh.util.concatenate(meshes)
 
-    if faces_top:
-        top_mesh = mesh.submesh([faces_top], append=True)
-        tex, norm = textures["top"]
-        meshes.append(self.apply_texture_simple(top_mesh, tex, norm))
+    def match_profiles_to_footprints(self, footprints, profiles):
 
-    if faces_side:
-        side_mesh = mesh.submesh([faces_side], append=True)
-        tex, norm = textures["side"]
-        meshes.append(self.apply_texture_simple(side_mesh, tex, norm))
+        matches = []
 
-    return trimesh.util.concatenate(meshes)
+        for fp in footprints:
+            minx, miny, maxx, maxy = fp.bounds
+            fw = maxx - minx
+
+            best_profile = None
+            best_score = float("inf")
+
+            for pr in profiles:
+                px = pr["x"]
+                pw = cv2.boundingRect(pr["contour"])[2]
+
+                dx = abs(minx - px)
+                dw = abs(fw - pw)
+
+                score = dx + dw
+
+                if score < best_score:
+                    best_score = score
+                    best_profile = pr
+
+            matches.append((fp, best_profile))
+
+        return matches
+
+    def apply_texture_to_mesh(self, mesh, textures):
+
+        faces_top = []
+        faces_side = []
+
+        for i, normal in enumerate(mesh.face_normals):
+            nx, ny, nz = np.abs(normal)
+
+            if nz > 0.7:
+                faces_top.append(i)
+            else:
+                faces_side.append(i)
+
+        meshes = []
+
+        # --- TOP ---
+        if faces_top and "top" in textures:
+            top_mesh = mesh.submesh([faces_top], append=True)
+            tex, norm = textures["top"]
+            meshes.append(self.apply_texture_simple(top_mesh, tex, norm))
+
+        # --- SIDES ---
+        if faces_side:
+            side_mesh = mesh.submesh([faces_side], append=True)
+
+            side_key = next(
+                (k for k in ["front", "back", "left", "right"] if k in textures),
+                None
+            )
+
+            if side_key:
+                tex, norm = textures[side_key]
+                meshes.append(self.apply_texture_simple(side_mesh, tex, norm))
+            else:
+                meshes.append(side_mesh)
+
+        return trimesh.util.concatenate(meshes)

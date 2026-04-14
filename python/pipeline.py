@@ -18,11 +18,10 @@ import traceback
 
 def run_pipeline(monument_path, output_path):
   
-  all_shapes = []
+  #all_shapes = []
   all_volumes = []
   
   textures={}
-  
   
   valid_extensions=('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
   
@@ -78,6 +77,14 @@ def run_pipeline(monument_path, output_path):
           continue
         #
         
+        # DEBUG: dump types/shapes
+        print("DEBUG:", file_name,
+          "segmented_img type:", type(segmented_img),
+          "segmented_img shape:", getattr(segmented_img, "shape", None),
+          "segmt_mask type:", type(segmt_mask),
+          "segmt_mask shape:", getattr(segmt_mask, "shape", None))
+        #
+        
         #preprocess's function call
         gray, clean = preprocess_image(segmented_img)
         
@@ -95,6 +102,12 @@ def run_pipeline(monument_path, output_path):
         if not shapes:
           print("No shapes detected.")
           continue
+        #
+        
+        #DEBUG
+        print("DEBUG:", file_name, "shapes count:", len(shapes), 
+          "first shape type:", type(shapes[0]) if shapes else None,
+          "first shape shape:", getattr(shapes[0], "shape", None) if shapes else None)
         #
         
         #Geração de Texturas
@@ -123,7 +136,7 @@ def run_pipeline(monument_path, output_path):
         } 
         
         #Shapes array- adding shapes
-        all_shapes.extend(shapes)
+        #all_shapes.extend(shapes)
 
         
         textures[view_type] = (albedo_path, normal_path)
@@ -137,7 +150,7 @@ def run_pipeline(monument_path, output_path):
             continue
         #
         
-        all_volumes.extend(volumes)
+        all_volumes.append(volumes)
       
       except Exception as expt:
         print(f"Erro ao processar o ficheiro {file_name}: {expt}")
@@ -150,8 +163,14 @@ def run_pipeline(monument_path, output_path):
     print("All volumes count:", len(all_volumes))
 
     #Mesh e UVS
+    
+    if not textures:
+      print("Erro: Nenhuma textura foi gerada.")
+      return
+    
     builder = get_mesh_builder(method="trimesh")
-    mesh = builder.build(all_volumes, height_map=gray)
+    mesh = builder.build(all_volumes)
+    
     objtexnorm = builder.apply_texture_to_mesh(mesh,textures)
   
     export_glb(objtexnorm, output_path)

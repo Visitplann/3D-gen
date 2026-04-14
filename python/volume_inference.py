@@ -6,29 +6,43 @@ def infer_volumes(shapes, view_type):
 
   is_top =  view_type == "top"
   is_side = view_type in ["left", "right", "front", "back"]
-
+  
+  
+  
   for shape in shapes:
 
     if cv2.contourArea(shape) < 1000:
         continue
-
+      
+    x, y, w, h = cv2.boundingRect(shape)
+    x, y, w, h = cv2.boundingRect(shape)
     if is_top:
       volume = {
           "type": "footprint",
-          "contour": shape
+          "contour": shape,
+          "x": x,
+          "y": y,
+          "width": w,
+          "depth": h
       }
     elif is_side:
-      _, _, _, h = cv2.boundingRect(shape)
+        volume = {
+            "type": "profile",
+            "contour": shape,
+            "height": h,
+            "x": x, 
+            "y": y,
+            "width": w,
+            "view": view_type  
+        }
 
-      volume = {
-          "type": "profile",
-          "height": h,
-          "contour": shape
-      }
     else:
-      # fallback
-      continue
-
+        continue
+    
+    #DEBUG
+    print(f"{view_type} contour → x:{x}, y:{y}, w:{w}, h:{h}")
+    #
+    
     volumes.append(volume)
 
   return volumes
