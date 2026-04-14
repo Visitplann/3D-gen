@@ -15,7 +15,9 @@ def infer_volumes(shapes, view_type):
         continue
       
     x, y, w, h = cv2.boundingRect(shape)
-    x, y, w, h = cv2.boundingRect(shape)
+    
+  
+
     if is_top:
       volume = {
           "type": "footprint",

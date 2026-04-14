@@ -63,7 +63,7 @@ def run_pipeline(monument_path, output_path):
             view_type = "back"
         else:
            #DEBUG
-            print(f"{file_name} → detected as {view_type}")
+            #print(f"{file_name} → detected as {view_type}")
             print(f"Unknown view type for {file_name}")
             continue
           
@@ -127,13 +127,13 @@ def run_pipeline(monument_path, output_path):
         cv2.imwrite(normal_path, normal[:, :, ::-1])
         
         
-        textures = {
-          "top": ("top_albedo.png", "top_normal.png"),
-          "front": (...),
-          "back":(...),
-          "left": (...),
-          "right":(...)
-        } 
+        #textures = {
+        #  "top": ("top_albedo.png", "top_normal.png"),
+        #  "front": ("front_albedo.png", "front_normal.png"),
+        #  "back": ("back_albedo.png", "back_normal.png"),
+        #  "left": ("left_albedo.png", "left_normal.png"),
+        #  "right": ("right_albedo.png", "right_normal.png")
+        #} 
         
         #Shapes array- adding shapes
         #all_shapes.extend(shapes)
@@ -150,7 +150,7 @@ def run_pipeline(monument_path, output_path):
             continue
         #
         
-        all_volumes.append(volumes)
+        all_volumes.extend(volumes)
       
       except Exception as expt:
         print(f"Erro ao processar o ficheiro {file_name}: {expt}")
