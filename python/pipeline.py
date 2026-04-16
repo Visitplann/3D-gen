@@ -1,3 +1,5 @@
+from numpy.random import normal
+
 from preprocessing import remove_background,preprocess_image, height_map_to_normal_map
 from shape_detection import detect_shapes
 from shape_detection import texture_cutout
@@ -118,15 +120,25 @@ def run_pipeline(monument_path, output_path):
         #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
         
         albedo = texture_cutout(clean, shapes)  
-        cv2.imwrite(albedo_path, albedo[:, :, ::-1])
+        #DEBUG
+        print("ALBEDO SHAPE:", albedo.shape)
+        #
+        if len(albedo.shape) == 3:
+          cv2.imwrite(albedo_path, albedo[:, :, ::-1])
+        else:
+          cv2.imwrite(albedo_path, albedo)
 
         #normal with texture cutout
         graycut = texture_cutout(gray, shapes) 
+        if len(graycut.shape) == 3:
+         graycut = cv2.cvtColor(graycut, cv2.COLOR_BGR2GRAY)
 
         normal = height_map_to_normal_map(graycut, 3.0)
-        cv2.imwrite(normal_path, normal[:, :, ::-1])
-        
-        
+        if len(normal.shape) == 3:
+          cv2.imwrite(normal_path, normal[:, :, ::-1])
+        else:
+          cv2.imwrite(normal_path, normal)
+
         #textures = {
         #  "top": ("top_albedo.png", "top_normal.png"),
         #  "front": ("front_albedo.png", "front_normal.png"),

@@ -95,6 +95,48 @@ class TrimeshBuilder(BaseMeshBuilder):
 
         return matches
 
+    def apply_texture_simple(self, mesh, texture_path, normal_path=None):
+
+        # --- UV mapping (planar projection) ---
+        normals = mesh.vertex_normals
+        uv = np.zeros((len(mesh.vertices), 2))
+
+        for i, n in enumerate(normals):
+            x, y, z = mesh.vertices[i]
+            nx, ny, nz = np.abs(n)
+
+            if nx > ny and nx > nz:
+                uv[i] = [y, z]
+            elif ny > nx and ny > nz:
+                uv[i] = [x, z]
+            else:
+                uv[i] = [x, y]
+
+        # Normalize UVs
+        uv -= uv.min(axis=0)
+        uv /= np.maximum(uv.max(axis=0), 1e-8)
+
+        # --- Material ---
+        if normal_path:
+            material = trimesh.visual.material.PBRMaterial(
+                baseColorTexture=Image.open(texture_path),
+                normalTexture=Image.open(normal_path),
+                metallicFactor=0.0,
+                roughnessFactor=1.0
+            )
+        else:
+            material = trimesh.visual.material.SimpleMaterial(
+                image=Image.open(texture_path)
+            )
+
+        # --- Apply ---
+        mesh.visual = trimesh.visual.texture.TextureVisuals(
+            uv=uv,
+            material=material
+        )
+
+        return mesh
+
     def apply_texture_to_mesh(self, mesh, textures):
 
         faces_top = []

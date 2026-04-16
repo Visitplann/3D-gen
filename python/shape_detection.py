@@ -111,11 +111,19 @@ def texture_cutout(clean_img, mon_shapes):
     for shape in mon_shapes:
         cv2.drawContours(mask, [shape], -1, 255, thickness=cv2.FILLED)
 
-    # Convert to RGBA (only once)
-    if clean_img.shape[2] == 3:
+    # Convertions
+    if len(clean_img.shape) == 2:
+        # grayscale → convert to BGRA
+        rgba = cv2.cvtColor(clean_img, cv2.COLOR_GRAY2BGRA)
+
+    elif clean_img.shape[2] == 3:
+        # BGR → BGRA
         rgba = cv2.cvtColor(clean_img, cv2.COLOR_BGR2BGRA)
+
     else:
+        # already RGBA
         rgba = clean_img.copy()
+
 
     # Apply mask as alpha channel
     rgba[:, :, 3] = mask
