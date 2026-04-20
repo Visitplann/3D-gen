@@ -3,6 +3,7 @@ import cv2
 import os
 import numpy as np
 from PIL import Image
+from trimesh import bounds
 from mesh.base_mesh_builder import BaseMeshBuilder
 from shapely.geometry import Polygon
 import sys
@@ -63,9 +64,9 @@ class TrimeshBuilder(BaseMeshBuilder):
                 engine="earcut"
             )
 
-            meshes.append(mesh)
+            meshes.append((mesh, footprint.bounds))
 
-        return trimesh.util.concatenate(meshes)
+        return meshes
 
     def match_profiles_to_footprints(self, footprints, profiles):
 
@@ -95,26 +96,41 @@ class TrimeshBuilder(BaseMeshBuilder):
 
         return matches
 
-    def apply_texture_simple(self, mesh, texture_path, normal_path=None):
+    def apply_texture_simple(self, mesh, texture_path, normal_path=None, bounds=None):
 
-        # --- UV mapping (planar projection) ---
-        normals = mesh.vertex_normals
+        # --- UV mapping ---
         uv = np.zeros((len(mesh.vertices), 2))
 
-        for i, n in enumerate(normals):
-            x, y, z = mesh.vertices[i]
-            nx, ny, nz = np.abs(n)
+        if bounds is not None:
+            # --- Bounds Map ---
+            minx, miny, maxx, maxy = bounds
 
-            if nx > ny and nx > nz:
-                uv[i] = [y, z]
-            elif ny > nx and ny > nz:
-                uv[i] = [x, z]
-            else:
-                uv[i] = [x, y]
+            for i, v in enumerate(mesh.vertices):
+                x, y, z = v
 
-        # Normalize UVs
-        uv -= uv.min(axis=0)
-        uv /= np.maximum(uv.max(axis=0), 1e-8)
+                u = (x - minx) / (maxx - minx + 1e-8)
+                v_coord = (y - miny) / (maxy - miny + 1e-8)
+
+                uv[i] = [u, 1.0 - v_coord]
+
+        else:
+            # --- fallback for sides ---
+            normals = mesh.vertex_normals
+
+            for i, n in enumerate(normals):
+                x, y, z = mesh.vertices[i]
+                nx, ny, nz = np.abs(n)
+
+                if nx > ny and nx > nz:
+                    uv[i] = [y, z]
+                elif ny > nx and ny > nz:
+                    uv[i] = [x, z]
+                else:
+                    uv[i] = [x, y]
+
+            uv -= uv.min(axis=0)
+            uv /= np.maximum(uv.max(axis=0), 1e-8)
+
 
         # --- Material ---
         if normal_path:
@@ -137,40 +153,67 @@ class TrimeshBuilder(BaseMeshBuilder):
 
         return mesh
 
-    def apply_texture_to_mesh(self, mesh, textures):
+    def apply_texture_to_mesh(self, mesh_data, textures):
+        
+        final_meshes = []
 
-        faces_top = []
-        faces_side = []
+        for mesh, bounds in mesh_data:
 
-        for i, normal in enumerate(mesh.face_normals):
-            nx, ny, nz = np.abs(normal)
+            faces_top = []
+            faces_side = []
 
-            if nz > 0.7:
-                faces_top.append(i)
-            else:
-                faces_side.append(i)
+            # --- Split faces ---
+            for i, normal in enumerate(mesh.face_normals):
+                nx, ny, nz = np.abs(normal)
 
-        meshes = []
+                if nz > 0.7:
+                    faces_top.append(i)
+                else:
+                    faces_side.append(i)
 
-        # --- TOP ---
-        if faces_top and "top" in textures:
-            top_mesh = mesh.submesh([faces_top], append=True)
-            tex, norm = textures["top"]
-            meshes.append(self.apply_texture_simple(top_mesh, tex, norm))
+            meshes = []
 
-        # --- SIDES ---
-        if faces_side:
-            side_mesh = mesh.submesh([faces_side], append=True)
+            # --- TOP ---
+            if faces_top and "top" in textures:
+                top_mesh = mesh.submesh([faces_top], append=True)
+                tex, norm = textures["top"]
 
-            side_key = next(
-                (k for k in ["front", "back", "left", "right"] if k in textures),
-                None
-            )
+                top_mesh = self.apply_texture_simple(
+                    top_mesh,
+                    tex,
+                    norm,
+                    bounds=bounds
+                )
 
-            if side_key:
-                tex, norm = textures[side_key]
-                meshes.append(self.apply_texture_simple(side_mesh, tex, norm))
-            else:
+                meshes.append(top_mesh)
+
+            # --- SIDES ---
+            if faces_side:
+                side_mesh = mesh.submesh([faces_side], append=True)
+
+                #side_key = next(
+                #    (k for k in ["front", "back", "left", "right"] if k in textures),
+                #    None
+                #)
+                
+                side_key = "front" if "front" in textures else None
+
+                if side_key:
+                    tex, norm = textures[side_key]
+
+                    side_mesh = self.apply_texture_simple(
+                        side_mesh,
+                        tex,
+                        norm
+                    )
+
                 meshes.append(side_mesh)
+            
+            #DEBUG
+            print("Mesh bounds:", mesh.bounds)
+            print("Footprint bounds:", bounds)
+            #
 
-        return trimesh.util.concatenate(meshes)
+            final_meshes.append(trimesh.util.concatenate(meshes))
+
+        return trimesh.util.concatenate(final_meshes)
