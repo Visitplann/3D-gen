@@ -123,16 +123,29 @@ def run_pipeline(monument_path, output_path):
         #DEBUG
         print("ALBEDO SHAPE:", albedo.shape)
         #
-        if len(albedo.shape) == 3:
-          cv2.imwrite(albedo_path, albedo[:, :, ::-1])
-        else:
-          cv2.imwrite(albedo_path, albedo)
-
+        
+        #if len(albedo.shape) == 3:
+        #  cv2.imwrite(albedo_path, albedo[:, :, ::-1])
+        #else:
+        #  cv2.imwrite(albedo_path, albedo)
+        
+        # Convert RGBA → BGRA for OpenCV
+        albedo_bgra = cv2.cvtColor(albedo, cv2.COLOR_RGBA2BGRA)
+        cv2.imwrite(albedo_path, albedo_bgra)
+        
         #normal with texture cutout
-        graycut = texture_cutout(gray, shapes) 
-        if len(graycut.shape) == 3:
-         graycut = cv2.cvtColor(graycut, cv2.COLOR_BGR2GRAY)
+        #graycut = texture_cutout(gray, shapes) 
+        #if len(graycut.shape) == 3:
+        # graycut = cv2.cvtColor(graycut, cv2.COLOR_BGR2GRAY)
+        #normal with texture cutout
+        
+        mask = np.zeros(gray.shape, dtype=np.uint8)
+        for shape in shapes:
+            cv2.drawContours(mask, [shape], -1, 255, thickness=cv2.FILLED)
 
+        graycut = cv2.bitwise_and(gray, gray, mask=mask)
+
+        #normal
         normal = height_map_to_normal_map(graycut, 3.0)
         if len(normal.shape) == 3:
           cv2.imwrite(normal_path, normal[:, :, ::-1])

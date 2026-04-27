@@ -125,10 +125,17 @@ def texture_cutout(clean_img, mon_shapes):
         rgba = clean_img.copy()
 
 
-    # Apply mask as alpha channel
-    rgba[:, :, 3] = mask
+    # Apply mask as alpha channel(OLD)
+    #rgba[:, :, 3] = mask
 
-    # Debug once
+
+    # Apply mask to RGB too
+    rgba[:, :, 0:3] = cv2.bitwise_and(rgba[:, :, 0:3], rgba[:, :, 0:3], mask=mask)
+
+    # Alpha channel
+    rgba[:, :, 3] = mask
+    
+    #Debug
     _show_debug_image("Debug Texture", rgba)
 
     return rgba

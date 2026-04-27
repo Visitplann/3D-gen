@@ -100,7 +100,9 @@ class TrimeshBuilder(BaseMeshBuilder):
 
         # --- UV mapping ---
         uv = np.zeros((len(mesh.vertices), 2))
-
+        
+       
+        
         if bounds is not None:
             # --- Bounds Map ---
             minx, miny, maxx, maxy = bounds
@@ -111,8 +113,11 @@ class TrimeshBuilder(BaseMeshBuilder):
                 u = (x - minx) / (maxx - minx + 1e-8)
                 v_coord = (y - miny) / (maxy - miny + 1e-8)
 
-                uv[i] = [u, 1.0 - v_coord]
-
+                uv[i] = [u, v_coord]
+                
+            #this or nothing should work for flipping the texture
+            #uv[:, 1] = 1.0 - uv[:, 1]
+            
         else:
             # --- fallback for sides ---
             normals = mesh.vertex_normals
@@ -121,13 +126,15 @@ class TrimeshBuilder(BaseMeshBuilder):
                 x, y, z = mesh.vertices[i]
                 nx, ny, nz = np.abs(n)
 
-                if nx > ny and nx > nz:
-                    uv[i] = [y, z]
-                elif ny > nx and ny > nz:
-                    uv[i] = [x, z]
-                else:
-                    uv[i] = [x, y]
-
+                #if nx > ny and nx > nz:
+                #    uv[i] = [y, z]
+                #elif ny > nx and ny > nz:
+                #    uv[i] = [x, z]
+                #else:
+                #    uv[i] = [x, y]
+                
+                uv[i] = [x, z]
+                
             uv -= uv.min(axis=0)
             uv /= np.maximum(uv.max(axis=0), 1e-8)
 
@@ -150,14 +157,23 @@ class TrimeshBuilder(BaseMeshBuilder):
             uv=uv,
             material=material
         )
-
+        
+        #DEBUG
+        print("UV min:", uv.min(axis=0))
+        print("UV max:", uv.max(axis=0))
+        #
+        
         return mesh
 
     def apply_texture_to_mesh(self, mesh_data, textures):
         
         final_meshes = []
-
-        for mesh, bounds in mesh_data:
+        
+        #DEBUG
+        print("Textures available:", textures.keys())
+        #
+        
+        for mesh, mesh_bounds in mesh_data:
 
             faces_top = []
             faces_side = []
@@ -166,7 +182,7 @@ class TrimeshBuilder(BaseMeshBuilder):
             for i, normal in enumerate(mesh.face_normals):
                 nx, ny, nz = np.abs(normal)
 
-                if nz > 0.7:
+                if nz > 0.5:
                     faces_top.append(i)
                 else:
                     faces_side.append(i)
@@ -182,7 +198,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     top_mesh,
                     tex,
                     norm,
-                    bounds=bounds
+                    bounds= mesh_bounds
                 )
 
                 meshes.append(top_mesh)
@@ -196,7 +212,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                 #    None
                 #)
                 
-                side_key = "front" if "front" in textures else None
+                side_key = next((k for k in ["front", "back", "left", "right"] if k in textures),None)
 
                 if side_key:
                     tex, norm = textures[side_key]
@@ -211,7 +227,7 @@ class TrimeshBuilder(BaseMeshBuilder):
             
             #DEBUG
             print("Mesh bounds:", mesh.bounds)
-            print("Footprint bounds:", bounds)
+            print("Footprint bounds:", mesh_bounds)
             #
 
             final_meshes.append(trimesh.util.concatenate(meshes))
