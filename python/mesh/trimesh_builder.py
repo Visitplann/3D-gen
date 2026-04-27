@@ -204,26 +204,26 @@ class TrimeshBuilder(BaseMeshBuilder):
                 meshes.append(top_mesh)
 
             # --- SIDES ---
-            if faces_side:
-                side_mesh = mesh.submesh([faces_side], append=True)
+            #if faces_side:
+            #    side_mesh = mesh.submesh([faces_side], append=True)
 
                 #side_key = next(
                 #    (k for k in ["front", "back", "left", "right"] if k in textures),
                 #    None
                 #)
                 
-                side_key = next((k for k in ["front", "back", "left", "right"] if k in textures),None)
+            #    side_key = next((k for k in ["front", "back", "left", "right"] if k in textures),None)
 
-                if side_key:
-                    tex, norm = textures[side_key]
+            #    if side_key:
+            #        tex, norm = textures[side_key]
 
-                    side_mesh = self.apply_texture_simple(
-                        side_mesh,
-                        tex,
-                        norm
-                    )
+            #        side_mesh = self.apply_texture_simple(
+            #            side_mesh,
+            #            tex,
+            #            norm
+            #        )
 
-                meshes.append(side_mesh)
+            #    meshes.append(side_mesh)
             
             #DEBUG
             print("Mesh bounds:", mesh.bounds)

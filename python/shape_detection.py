@@ -135,6 +135,12 @@ def texture_cutout(clean_img, mon_shapes):
     # Alpha channel
     rgba[:, :, 3] = mask
     
+    #Crop to bounding box of the shape
+    x, y, w, h = cv2.boundingRect(mask)
+
+    rgba = rgba[y:y+h, x:x+w]
+    mask = mask[y:y+h, x:x+w]
+    
     #Debug
     _show_debug_image("Debug Texture", rgba)
 
