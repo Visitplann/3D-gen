@@ -24,7 +24,7 @@ class TrimeshBuilder(BaseMeshBuilder):
         self.debug_dir = debug_dir
         
         if self.debug:
-         os.makedirs(self.debug_dir, exist_ok=True)
+            os.makedirs(self.debug_dir, exist_ok=True)
         
     def build(self, volumes):
 
@@ -100,9 +100,7 @@ class TrimeshBuilder(BaseMeshBuilder):
 
         # --- UV mapping ---
         uv = np.zeros((len(mesh.vertices), 2))
-        
-       
-        
+
         if bounds is not None:
             # --- Bounds Map ---
             minx, miny, maxx, maxy = bounds
@@ -119,22 +117,27 @@ class TrimeshBuilder(BaseMeshBuilder):
             #uv[:, 1] = 1.0 - uv[:, 1]
             
         else:
-            # --- fallback for sides ---
-            normals = mesh.vertex_normals
+            normals = mesh.face_normals
 
-            for i, n in enumerate(normals):
-                x, y, z = mesh.vertices[i]
-                nx, ny, nz = np.abs(n)
+            for i, v in enumerate(mesh.vertices):
+                x, y, z = v
 
-                #if nx > ny and nx > nz:
-                #    uv[i] = [y, z]
-                #elif ny > nx and ny > nz:
-                #    uv[i] = [x, z]
-                #else:
-                #    uv[i] = [x, y]
-                
-                uv[i] = [x, z]
-                
+                # finds dominant axis from face normals
+                nx, ny, nz = np.abs(mesh.vertex_normals[i])
+
+                if ny > nx and ny > nz:
+                    # Left and Right(YZ)
+                    uv[i] = [y, z]
+
+                elif nx > ny and nx > nz:
+                    # Front and Back(XZ)
+                    uv[i] = [x, z]
+
+                else:
+                    # TOP Fallback
+                    uv[i] = [x, y]
+                       
+            #normalize                
             uv -= uv.min(axis=0)
             uv /= np.maximum(uv.max(axis=0), 1e-8)
 
@@ -176,19 +179,31 @@ class TrimeshBuilder(BaseMeshBuilder):
         for mesh, mesh_bounds in mesh_data:
 
             faces_top = []
-            faces_side = []
-
-            # --- Split faces ---
-            for i, normal in enumerate(mesh.face_normals):
-                nx, ny, nz = np.abs(normal)
-
-                if nz > 0.5:
-                    faces_top.append(i)
-                else:
-                    faces_side.append(i)
-
+            faces_front = []
+            faces_back = []
+            faces_left = []
+            faces_right = []
+            
             meshes = []
+            
+            for i, normal in enumerate(mesh.face_normals):
+                nx, ny, nz = normal
 
+                if abs(nz) > 0.5:
+                    faces_top.append(i)
+
+                elif abs(ny) > abs(nx):
+                    if ny > 0:
+                        faces_front.append(i)
+                    else:
+                        faces_back.append(i)
+
+                else:
+                    if nx > 0:
+                        faces_right.append(i)
+                    else:
+                        faces_left.append(i)
+                        
             # --- TOP ---
             if faces_top and "top" in textures:
                 top_mesh = mesh.submesh([faces_top], append=True)
@@ -200,30 +215,35 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds= mesh_bounds
                 )
-
                 meshes.append(top_mesh)
 
-            # --- SIDES ---
-            #if faces_side:
-            #    side_mesh = mesh.submesh([faces_side], append=True)
+            # --- FRONT ---
+            if faces_front and "front" in textures:
+                m = mesh.submesh([faces_front], append=True)
+                tex, norm = textures["front"]
+                m = self.apply_texture_simple(m, tex, norm)
+                meshes.append(m)
 
-                #side_key = next(
-                #    (k for k in ["front", "back", "left", "right"] if k in textures),
-                #    None
-                #)
-                
-            #    side_key = next((k for k in ["front", "back", "left", "right"] if k in textures),None)
+            # --- BACK ---
+            if faces_back and "back" in textures:
+                m = mesh.submesh([faces_back], append=True)
+                tex, norm = textures["back"]
+                m = self.apply_texture_simple(m, tex, norm)
+                meshes.append(m)
 
-            #    if side_key:
-            #        tex, norm = textures[side_key]
+            # --- LEFT ---
+            if faces_left and "left" in textures:
+                m = mesh.submesh([faces_left], append=True)
+                tex, norm = textures["left"]
+                m = self.apply_texture_simple(m, tex, norm)
+                meshes.append(m)
 
-            #        side_mesh = self.apply_texture_simple(
-            #            side_mesh,
-            #            tex,
-            #            norm
-            #        )
-
-            #    meshes.append(side_mesh)
+            # --- RIGHT ---
+            if faces_right and "right" in textures:
+                m = mesh.submesh([faces_right], append=True)
+                tex, norm = textures["right"]
+                m = self.apply_texture_simple(m, tex, norm)
+                meshes.append(m)
             
             #DEBUG
             print("Mesh bounds:", mesh.bounds)

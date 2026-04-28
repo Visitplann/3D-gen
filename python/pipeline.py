@@ -139,19 +139,34 @@ def run_pipeline(monument_path, output_path):
         # graycut = cv2.cvtColor(graycut, cv2.COLOR_BGR2GRAY)
         #normal with texture cutout
         
+        #mask = np.zeros(gray.shape, dtype=np.uint8)
+        #for shape in shapes:
+        #    cv2.drawContours(mask, [shape], -1, 255, thickness=cv2.FILLED)
+
+        #graycut = cv2.bitwise_and(gray, gray, mask=mask)
+
+        #normal
+        #normal = height_map_to_normal_map(graycut, 3.0)
+        #if len(normal.shape) == 3:
+        #  cv2.imwrite(normal_path, normal[:, :, ::-1])
+        #else:
+        #  cv2.imwrite(normal_path, normal)
+
+        # Generate from full image
+        normal = height_map_to_normal_map(gray, 3.0)
+
+        # Mask
         mask = np.zeros(gray.shape, dtype=np.uint8)
         for shape in shapes:
             cv2.drawContours(mask, [shape], -1, 255, thickness=cv2.FILLED)
 
-        graycut = cv2.bitwise_and(gray, gray, mask=mask)
+        normal = cv2.bitwise_and(normal, normal, mask=mask)
 
-        #normal
-        normal = height_map_to_normal_map(graycut, 3.0)
-        if len(normal.shape) == 3:
-          cv2.imwrite(normal_path, normal[:, :, ::-1])
-        else:
-          cv2.imwrite(normal_path, normal)
+        # Fill background with neutral normal
+        normal[mask == 0] = [128, 128, 255]
 
+        cv2.imwrite(normal_path, normal[:, :, ::-1])
+        
         #textures = {
         #  "top": ("top_albedo.png", "top_normal.png"),
         #  "front": ("front_albedo.png", "front_normal.png"),
