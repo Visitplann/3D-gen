@@ -129,6 +129,8 @@ def preprocess_image(img):
   
   return gray, clean
 
+#TRY GIVING THE A FULLY PROCESSED GRAYSCALE IMAGE TO THE SHAPE DETECTION INSTEAD OF THE MASK, SEE IF IT CAN BE USED FOR THE HEIGHT MAP TO NORMAL MAP FUNCTION
+
 #Intensidade por Material: 
 #>Pedra Lisa: 1.0-1.5
 #>Fachada: 2.0-3.0
