@@ -212,7 +212,12 @@ def run_pipeline(monument_path, output_path):
     builder = get_mesh_builder(method="trimesh")
     mesh = builder.build(all_volumes)
     
-    objtexnorm = builder.apply_texture_to_mesh(mesh, textures, preserve_aspect=True)
+    objtexnorm = builder.apply_texture_to_mesh(
+        mesh,
+        textures,
+        preserve_aspect=True,
+        texture_rotations={"top": 270}
+    )
   
     export_glb(objtexnorm, output_path)
     print(f"Sucesso! Ficheiro exportado para: {output_path}")
