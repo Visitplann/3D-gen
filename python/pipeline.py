@@ -126,45 +126,25 @@ def run_pipeline(monument_path, output_path):
         #Conversão de Espaço de Cores
         #albedo = cv2.cvtColor(albedo_ref,cv2.COLOR_BGR2RGB)
         
-        albedo = texture_cutout(clean, shapes)  
+        albedo = texture_cutout(clean, shapes)
         #DEBUG
         print("ALBEDO SHAPE:", albedo.shape)
         #
-        #texture_cutout already returns a BGRA image when the input is BGR,
-        #so do not swap channels as if it were RGBA.
         cv2.imwrite(albedo_path, albedo)
-        
-        #normal with texture cutout
-        #graycut = texture_cutout(gray, shapes) 
-        #if len(graycut.shape) == 3:
-        # graycut = cv2.cvtColor(graycut, cv2.COLOR_BGR2GRAY)
-        #normal with texture cutout
-        
-        #mask = np.zeros(gray.shape, dtype=np.uint8)
-        #for shape in shapes:
-        #    cv2.drawContours(mask, [shape], -1, 255, thickness=cv2.FILLED)
 
-        #graycut = cv2.bitwise_and(gray, gray, mask=mask)
-
-        #normal
-        #normal = height_map_to_normal_map(graycut, 3.0)
-        #if len(normal.shape) == 3:
-        #  cv2.imwrite(normal_path, normal[:, :, ::-1])
-        #else:
-        #  cv2.imwrite(normal_path, normal)
-
-        # Generate from full image
-        normal = height_map_to_normal_map(gray, 3.0)
-
-        # Mask
+        # Generate the normal map from the full gray image, then crop it to the
+        # same bounding box as the albedo so normal and albedo textures align.
         mask = np.zeros(gray.shape, dtype=np.uint8)
         for shape in shapes:
             cv2.drawContours(mask, [shape], -1, 255, thickness=cv2.FILLED)
 
-        normal = cv2.bitwise_and(normal, normal, mask=mask)
+        x_bbox, y_bbox, w_bbox, h_bbox = cv2.boundingRect(mask)
 
-        # Fill background with neutral normal
-        normal[mask == 0] = [128, 128, 255]
+        normal = height_map_to_normal_map(gray, 3.0)
+        normal = normal[y_bbox:y_bbox+h_bbox, x_bbox:x_bbox+w_bbox]
+
+        mask_crop = mask[y_bbox:y_bbox+h_bbox, x_bbox:x_bbox+w_bbox]
+        normal[mask_crop == 0] = [128, 128, 255]
 
         cv2.imwrite(normal_path, normal[:, :, ::-1])
         

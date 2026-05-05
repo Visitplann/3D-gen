@@ -270,7 +270,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=front_bounds,
                     coord_system="xz",
-                    preserve_aspect=preserve_aspect,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("front", 0)
                 )
                 meshes.append(m)
@@ -286,7 +286,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=back_bounds,
                     coord_system="xz",
-                    preserve_aspect=preserve_aspect,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("back", 0)
                 )
                 meshes.append(m)
@@ -302,7 +302,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=left_bounds,
                     coord_system="yz",
-                    preserve_aspect=preserve_aspect,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("left", 0)
                 )
                 meshes.append(m)
@@ -318,7 +318,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=right_bounds,
                     coord_system="yz",
-                    preserve_aspect=preserve_aspect,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("right", 0)
                 )
                 meshes.append(m)
