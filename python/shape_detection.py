@@ -111,8 +111,8 @@ def detect_shapes(segmask):#originally gray_img
     cv2.drawContours(mask, [hull], -1, 255, thickness=cv2.FILLED)
 
     # --- Gentle dilation  ---
-    kernel = np.ones((5, 5), np.uint8)
-    mask = cv2.dilate(mask, kernel, iterations=1)
+    #kernel = np.ones((5, 5), np.uint8)
+    #mask = cv2.dilate(mask, kernel, iterations=1)
 
     # --- Fill holes ---
     mask = spot_filler(mask)

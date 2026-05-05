@@ -79,6 +79,12 @@ def run_pipeline(monument_path, output_path):
           continue
         #
         
+        # Clean mask 
+        kernel = np.ones((5, 5), np.uint8)
+        segmt_mask = cv2.morphologyEx(segmt_mask, cv2.MORPH_CLOSE, kernel)
+        segmt_mask = cv2.morphologyEx(segmt_mask, cv2.MORPH_OPEN, kernel)
+        
+        
         # DEBUG: dump types/shapes
         print("DEBUG:", file_name,
           "segmented_img type:", type(segmented_img),
@@ -86,6 +92,7 @@ def run_pipeline(monument_path, output_path):
           "segmt_mask type:", type(segmt_mask),
           "segmt_mask shape:", getattr(segmt_mask, "shape", None))
         #
+        
         
         #preprocess's function call
         gray, clean = preprocess_image(segmented_img)
