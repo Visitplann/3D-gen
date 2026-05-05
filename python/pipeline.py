@@ -19,6 +19,13 @@ import numpy as np
 from PIL import Image
 import traceback
 
+#Command line enabler for complex mode:
+# Enable complex mode for detailed reconstruction
+#python python/pipeline.py --complex --scale=1.2
+
+# Set complex mode via environment
+#COMPLEX_MODE=true MODEL_SCALE=1.0 python python/pipeline.py. see line 236
+
 def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=False):
   
   #all_shapes = []
