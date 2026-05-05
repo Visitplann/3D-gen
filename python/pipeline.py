@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 import traceback
 
-def run_pipeline(monument_path, output_path, scale_factor=1.0):
+def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=False):
   
   #all_shapes = []
   all_volumes = []
@@ -105,8 +105,7 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0):
         #
         
         #Shape detection call
-        #shapes = detect_shapes(gray)
-        shapes = detect_shapes(segmt_mask)
+        shapes = detect_shapes(segmt_mask, complex_mode=complex_mode)
                 
         #FAILSAFE
         if not shapes:
@@ -191,7 +190,7 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0):
       return
     
     builder = get_mesh_builder(method="trimesh")
-    mesh = builder.build(all_volumes)
+    mesh = builder.build(all_volumes, overall_scale=scale_factor, complex_mode=complex_mode)
     
     objtexnorm = builder.apply_texture_to_mesh(
         mesh,
@@ -227,9 +226,13 @@ if __name__ == "__main__":
   #print("Trying to access:", os.path.abspath(input_folder))
   
   scale_arg = os.environ.get("MODEL_SCALE", "1.0")
+  complex_mode = os.environ.get("COMPLEX_MODE", "false").lower() == "true"
+
   for arg in sys.argv[1:]:
     if arg.startswith("--scale="):
       scale_arg = arg.split("=", 1)[1]
+    elif arg == "--complex":
+      complex_mode = True
 
   try:
     scale_factor = float(scale_arg)
@@ -238,9 +241,10 @@ if __name__ == "__main__":
     scale_factor = 1.0
 
   print(f"Using model scale: {scale_factor}")
+  print(f"Complex mode: {complex_mode}")
 
   if os.path.exists(input_folder):
-    run_pipeline(input_folder, output_file, scale_factor)
+    run_pipeline(input_folder, output_file, scale_factor, complex_mode)
   else:
     print(f"Erro: A pasta de entrada {input_folder} não existe.")
  

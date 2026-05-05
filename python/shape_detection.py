@@ -15,7 +15,7 @@ def _show_debug_image(name, img):
   cv2.waitKey(0)
   cv2.destroyAllWindows()
 
-def detect_shapes(segmask):#originally gray_img
+def detect_shapes(segmask, complex_mode=False):#originally gray_img
   
     # Ensure binary mask
     #_, segmask = cv2.threshold(segmask, 127, 255, cv2.THRESH_BINARY)
@@ -95,56 +95,76 @@ def detect_shapes(segmask):#originally gray_img
     # --- Ensure binary ---
     _, segmask = cv2.threshold(segmask, 127, 255, cv2.THRESH_BINARY)
 
-    # --- Get largest contour ---
+    # --- Get ALL significant contours ---
     contours, _ = cv2.findContours(segmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if not contours:
         print("Nenhum contorno encontrado.")
         return []
 
-    largest = max(contours, key=cv2.contourArea)
+    # Filter contours by area and sort by size
+    significant_contours = [c for c in contours if cv2.contourArea(c) > 500]
+    significant_contours.sort(key=cv2.contourArea, reverse=True)
 
-    # --- Convex hull (fills missing parts) ---
-    hull = cv2.convexHull(largest)
-
-    mask = np.zeros_like(segmask)
-    cv2.drawContours(mask, [hull], -1, 255, thickness=cv2.FILLED)
-
-    # --- Gentle dilation  ---
-    #kernel = np.ones((5, 5), np.uint8)
-    #mask = cv2.dilate(mask, kernel, iterations=1)
-
-    # --- Fill holes ---
-    mask = spot_filler(mask)
-
-    # --- Smooth edges (NEW, important) ---
-    mask = cv2.GaussianBlur(mask, (5, 5), 0)
-    _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
-
-    # --- Final contour ---
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    if not contours:
-        print("Nenhum contorno encontrado.")
+    if not significant_contours:
+        print("Nenhum contorno significativo encontrado.")
         return []
 
-    largest = max(contours, key=cv2.contourArea)
+    # For complex shapes, return multiple contours instead of just the largest
+    # Limit to top 5 contours to avoid noise
+    selected_contours = significant_contours[:5]
 
-    # --- Approx polygon ---
-    approx = cv2.approxPolyDP(
-        largest,
-        0.01 * cv2.arcLength(largest, True),
-        True
-    )
+    # For simple mode, still use the largest contour with convex hull processing
+    if not complex_mode and selected_contours:
+        largest = selected_contours[0]
 
-    # --- DEBUG ---
-    debug_img = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-    cv2.drawContours(debug_img, [approx], -1, (0, 255, 0), 3)
-    _show_debug_image("Final Shape", cv2.resize(debug_img, (800, 600)))
+        # --- Convex hull (fills missing parts) ---
+        hull = cv2.convexHull(largest)
 
-    cv2.imwrite("debug_fixed_mask.png", mask)
+        mask = np.zeros_like(segmask)
+        cv2.drawContours(mask, [hull], -1, 255, thickness=cv2.FILLED)
 
-    return [approx]
+        # --- Fill holes ---
+        mask = spot_filler(mask)
+
+        # --- Smooth edges ---
+        mask = cv2.GaussianBlur(mask, (5, 5), 0)
+        _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+
+        # --- Final contour ---
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if contours:
+            largest = max(contours, key=cv2.contourArea)
+            approx = cv2.approxPolyDP(
+                largest,
+                0.01 * cv2.arcLength(largest, True),
+                True
+            )
+            approximated_contours = [approx]
+        else:
+            approximated_contours = []
+    else:
+        # For complex mode, use multiple contours with tighter approximation
+        approximated_contours = []
+        for contour in selected_contours:
+            approx = cv2.approxPolyDP(
+                contour,
+                0.005 * cv2.arcLength(contour, True),  # Tighter approximation for complex shapes
+                True
+            )
+            approximated_contours.append(approx)
+
+    # DEBUG
+    debug_img = cv2.cvtColor(segmask, cv2.COLOR_GRAY2BGR)
+    for i, contour in enumerate(approximated_contours):
+        color = [(i * 50) % 255, (i * 80) % 255, (i * 110) % 255]
+        cv2.drawContours(debug_img, [contour], -1, color, 2)
+    _show_debug_image("Multiple Contours", cv2.resize(debug_img, (800, 600)))
+
+    cv2.imwrite("debug_fixed_mask.png", segmask)
+
+    return approximated_contours
 
     #shapes = []
     #for cnt in contours:

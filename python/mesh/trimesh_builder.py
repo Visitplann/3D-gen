@@ -26,7 +26,7 @@ class TrimeshBuilder(BaseMeshBuilder):
         if self.debug:
             os.makedirs(self.debug_dir, exist_ok=True)
         
-    def build(self, volumes, overall_scale=1.0):
+    def build(self, volumes, overall_scale=1.0, complex_mode=False):
 
         meshes = []
         footprints = []
@@ -51,28 +51,65 @@ class TrimeshBuilder(BaseMeshBuilder):
         if not footprints:
             raise ValueError("No footprint found for extrusion")
 
-        
-        matches = self.match_profiles_to_footprints(footprints, profiles)
+        if complex_mode and len(footprints) > 1:
+            # For complex shapes with multiple footprints, try to create a more detailed mesh
+            return self._build_complex_mesh(footprints, profiles, overall_scale)
+        else:
+            # Standard approach for simple shapes
+            matches = self.match_profiles_to_footprints(footprints, profiles)
 
-        for footprint, profile in matches:
+            for footprint, profile in matches:
 
-            height = profile["height"] if profile else 50
+                height = profile["height"] if profile else 30  # Default height for complex shapes
 
-            if profile:
-                if profile["view"] in ("front", "back"):
-                    footprint_width = footprint.bounds[2] - footprint.bounds[0]
-                    if profile["width"] > 0:
-                        scale = footprint_width / profile["width"]
+                if profile:
+                    # Apply scaling based on footprint dimensions
+                    if profile["view"] in ("front", "back"):
+                        footprint_width = footprint.bounds[2] - footprint.bounds[0]
+                        if profile["width"] > 0:
+                            scale = footprint_width / profile["width"]
+                        else:
+                            scale = 1.0
                     else:
-                        scale = 1.0
-                else:
-                    footprint_depth = footprint.bounds[3] - footprint.bounds[1]
-                    if profile["width"] > 0:
-                        scale = footprint_depth / profile["width"]
-                    else:
-                        scale = 1.0
+                        footprint_depth = footprint.bounds[3] - footprint.bounds[1]
+                        if profile["width"] > 0:
+                            scale = footprint_depth / profile["width"]
+                        else:
+                            scale = 1.0
 
-                height = height * scale
+                    height = height * scale
+
+                mesh = trimesh.creation.extrude_polygon(
+                    footprint,
+                    height,
+                    engine="earcut"
+                )
+
+                if overall_scale != 1.0:
+                    mesh.apply_scale(overall_scale)
+
+                meshes.append((mesh, footprint.bounds))
+
+        return meshes
+
+        return meshes
+
+    def _build_complex_mesh(self, footprints, profiles, overall_scale):
+        """Build a more complex mesh by combining multiple footprints."""
+        meshes = []
+
+        # Try to find a reasonable height from profiles
+        avg_height = 30  # Default
+        if profiles:
+            heights = [p["height"] for p in profiles if "height" in p]
+            if heights:
+                avg_height = sum(heights) / len(heights)
+
+        # Create extruded meshes for each footprint with some variation in height
+        for i, footprint in enumerate(footprints):
+            # Add some height variation for more interesting shapes
+            height_variation = 0.8 + (i / len(footprints)) * 0.4  # 0.8 to 1.2
+            height = avg_height * height_variation
 
             mesh = trimesh.creation.extrude_polygon(
                 footprint,
