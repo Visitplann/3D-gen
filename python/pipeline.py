@@ -130,15 +130,9 @@ def run_pipeline(monument_path, output_path):
         #DEBUG
         print("ALBEDO SHAPE:", albedo.shape)
         #
-        
-        #if len(albedo.shape) == 3:
-        #  cv2.imwrite(albedo_path, albedo[:, :, ::-1])
-        #else:
-        #  cv2.imwrite(albedo_path, albedo)
-        
-        # Convert RGBA → BGRA for OpenCV
-        albedo_bgra = cv2.cvtColor(albedo, cv2.COLOR_RGBA2BGRA)
-        cv2.imwrite(albedo_path, albedo_bgra)
+        #texture_cutout already returns a BGRA image when the input is BGR,
+        #so do not swap channels as if it were RGBA.
+        cv2.imwrite(albedo_path, albedo)
         
         #normal with texture cutout
         #graycut = texture_cutout(gray, shapes) 
@@ -218,7 +212,7 @@ def run_pipeline(monument_path, output_path):
     builder = get_mesh_builder(method="trimesh")
     mesh = builder.build(all_volumes)
     
-    objtexnorm = builder.apply_texture_to_mesh(mesh,textures)
+    objtexnorm = builder.apply_texture_to_mesh(mesh, textures, preserve_aspect=True)
   
     export_glb(objtexnorm, output_path)
     print(f"Sucesso! Ficheiro exportado para: {output_path}")

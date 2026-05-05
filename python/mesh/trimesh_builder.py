@@ -96,23 +96,52 @@ class TrimeshBuilder(BaseMeshBuilder):
 
         return matches
 
-    def apply_texture_simple(self, mesh, texture_path, normal_path=None, bounds=None):
+    def apply_texture_simple(self, mesh, texture_path, normal_path=None, bounds=None, coord_system="xy", preserve_aspect=False, rotate=0):
 
         # --- UV mapping ---
         uv = np.zeros((len(mesh.vertices), 2))
 
         if bounds is not None:
             # --- Bounds Map ---
-            minx, miny, maxx, maxy = bounds
+            min_u, min_v, max_u, max_v = bounds
 
             for i, v in enumerate(mesh.vertices):
                 x, y, z = v
 
-                u = (x - minx) / (maxx - minx + 1e-8)
-                v_coord = (y - miny) / (maxy - miny + 1e-8)
+                if coord_system == "xz":
+                    # Front/Back faces: use X and Z coordinates
+                    u = (x - min_u) / (max_u - min_u + 1e-8)
+                    v_coord = (z - min_v) / (max_v - min_v + 1e-8)
+                elif coord_system == "yz":
+                    # Left/Right faces: use Y and Z coordinates
+                    u = (y - min_u) / (max_u - min_u + 1e-8)
+                    v_coord = (z - min_v) / (max_v - min_v + 1e-8)
+                else:
+                    # XY (top face): use X and Y coordinates
+                    u = (x - min_u) / (max_u - min_u + 1e-8)
+                    v_coord = (y - min_v) / (max_v - min_v + 1e-8)
 
                 uv[i] = [u, v_coord]
-                
+
+            if preserve_aspect:
+                texture_image = Image.open(texture_path)
+                tex_w, tex_h = texture_image.size
+                if rotate in (90, 270):
+                    tex_w, tex_h = tex_h, tex_w
+
+                mesh_w = max_u - min_u
+                mesh_h = max_v - min_v
+                if mesh_h > 0 and tex_h > 0:
+                    mesh_ratio = mesh_w / mesh_h
+                    texture_ratio = tex_w / tex_h
+
+                    if mesh_ratio > texture_ratio:
+                        scale = texture_ratio / mesh_ratio
+                        uv[:, 1] = uv[:, 1] * scale + (1.0 - scale) * 0.5
+                    else:
+                        scale = mesh_ratio / texture_ratio
+                        uv[:, 0] = uv[:, 0] * scale + (1.0 - scale) * 0.5
+
             #this or nothing should work for flipping the texture
             #uv[:, 1] = 1.0 - uv[:, 1]
             
@@ -126,15 +155,15 @@ class TrimeshBuilder(BaseMeshBuilder):
                 nx, ny, nz = np.abs(mesh.vertex_normals[i])
 
                 if ny > nx and ny > nz:
-                    # Left and Right(YZ)
-                    uv[i] = [y, z]
-
-                elif nx > ny and nx > nz:
-                    # Front and Back(XZ)
+                    # Front and Back(XZ) faces lie in the XZ plane
                     uv[i] = [x, z]
 
+                elif nx > ny and nx > nz:
+                    # Left and Right(YZ) faces lie in the YZ plane
+                    uv[i] = [y, z]
+
                 else:
-                    # TOP Fallback
+                    # TOP fallback uses XY
                     uv[i] = [x, y]
                        
             #normalize                
@@ -143,16 +172,23 @@ class TrimeshBuilder(BaseMeshBuilder):
 
 
         # --- Material ---
+        base_image = Image.open(texture_path)
+        if rotate != 0:
+            base_image = base_image.rotate(rotate, expand=True)
+
         if normal_path:
+            normal_image = Image.open(normal_path)
+            if rotate != 0:
+                normal_image = normal_image.rotate(rotate, expand=True)
             material = trimesh.visual.material.PBRMaterial(
-                baseColorTexture=Image.open(texture_path),
-                normalTexture=Image.open(normal_path),
+                baseColorTexture=base_image,
+                normalTexture=normal_image,
                 metallicFactor=0.0,
                 roughnessFactor=1.0
             )
         else:
             material = trimesh.visual.material.SimpleMaterial(
-                image=Image.open(texture_path)
+                image=base_image
             )
 
         # --- Apply ---
@@ -168,12 +204,14 @@ class TrimeshBuilder(BaseMeshBuilder):
         
         return mesh
 
-    def apply_texture_to_mesh(self, mesh_data, textures):
+    def apply_texture_to_mesh(self, mesh_data, textures, preserve_aspect=True, texture_rotations=None):
         
+        texture_rotations = texture_rotations or {}
         final_meshes = []
         
         #DEBUG
         print("Textures available:", textures.keys())
+        print("Texture rotations:", texture_rotations)
         #
         
         for mesh, mesh_bounds in mesh_data:
@@ -208,12 +246,16 @@ class TrimeshBuilder(BaseMeshBuilder):
             if faces_top and "top" in textures:
                 top_mesh = mesh.submesh([faces_top], append=True)
                 tex, norm = textures["top"]
+                rotate = texture_rotations.get("top", 0)
 
                 top_mesh = self.apply_texture_simple(
                     top_mesh,
                     tex,
                     norm,
-                    bounds= mesh_bounds
+                    bounds=mesh_bounds,
+                    coord_system="xy",
+                    preserve_aspect=preserve_aspect,
+                    rotate=rotate
                 )
                 meshes.append(top_mesh)
 
@@ -221,28 +263,64 @@ class TrimeshBuilder(BaseMeshBuilder):
             if faces_front and "front" in textures:
                 m = mesh.submesh([faces_front], append=True)
                 tex, norm = textures["front"]
-                m = self.apply_texture_simple(m, tex, norm)
+                front_bounds = self._get_submesh_bounds_xz(m)
+                m = self.apply_texture_simple(
+                    m,
+                    tex,
+                    norm,
+                    bounds=front_bounds,
+                    coord_system="xz",
+                    preserve_aspect=preserve_aspect,
+                    rotate=texture_rotations.get("front", 0)
+                )
                 meshes.append(m)
 
             # --- BACK ---
             if faces_back and "back" in textures:
                 m = mesh.submesh([faces_back], append=True)
                 tex, norm = textures["back"]
-                m = self.apply_texture_simple(m, tex, norm)
+                back_bounds = self._get_submesh_bounds_xz(m)
+                m = self.apply_texture_simple(
+                    m,
+                    tex,
+                    norm,
+                    bounds=back_bounds,
+                    coord_system="xz",
+                    preserve_aspect=preserve_aspect,
+                    rotate=texture_rotations.get("back", 0)
+                )
                 meshes.append(m)
 
             # --- LEFT ---
             if faces_left and "left" in textures:
                 m = mesh.submesh([faces_left], append=True)
                 tex, norm = textures["left"]
-                m = self.apply_texture_simple(m, tex, norm)
+                left_bounds = self._get_submesh_bounds_yz(m)
+                m = self.apply_texture_simple(
+                    m,
+                    tex,
+                    norm,
+                    bounds=left_bounds,
+                    coord_system="yz",
+                    preserve_aspect=preserve_aspect,
+                    rotate=texture_rotations.get("left", 0)
+                )
                 meshes.append(m)
 
             # --- RIGHT ---
             if faces_right and "right" in textures:
                 m = mesh.submesh([faces_right], append=True)
                 tex, norm = textures["right"]
-                m = self.apply_texture_simple(m, tex, norm)
+                right_bounds = self._get_submesh_bounds_yz(m)
+                m = self.apply_texture_simple(
+                    m,
+                    tex,
+                    norm,
+                    bounds=right_bounds,
+                    coord_system="yz",
+                    preserve_aspect=preserve_aspect,
+                    rotate=texture_rotations.get("right", 0)
+                )
                 meshes.append(m)
             
             #DEBUG
@@ -253,3 +331,17 @@ class TrimeshBuilder(BaseMeshBuilder):
             final_meshes.append(trimesh.util.concatenate(meshes))
 
         return trimesh.util.concatenate(final_meshes)
+
+    def _get_submesh_bounds_xz(self, submesh):
+        """Get 2D bounds (x, z) for front/back faces projecting normals on XZ plane."""
+        verts = submesh.vertices
+        x_min, x_max = verts[:, 0].min(), verts[:, 0].max()
+        z_min, z_max = verts[:, 2].min(), verts[:, 2].max()
+        return (x_min, z_min, x_max, z_max)
+
+    def _get_submesh_bounds_yz(self, submesh):
+        """Get 2D bounds (y, z) for left/right faces projecting normals on YZ plane."""
+        verts = submesh.vertices
+        y_min, y_max = verts[:, 1].min(), verts[:, 1].max()
+        z_min, z_max = verts[:, 2].min(), verts[:, 2].max()
+        return (y_min, z_min, y_max, z_max)
