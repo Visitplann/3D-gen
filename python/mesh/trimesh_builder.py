@@ -26,7 +26,7 @@ class TrimeshBuilder(BaseMeshBuilder):
         if self.debug:
             os.makedirs(self.debug_dir, exist_ok=True)
         
-    def build(self, volumes):
+    def build(self, volumes, overall_scale=1.0):
 
         meshes = []
         footprints = []
@@ -58,11 +58,30 @@ class TrimeshBuilder(BaseMeshBuilder):
 
             height = profile["height"] if profile else 50
 
+            if profile:
+                if profile["view"] in ("front", "back"):
+                    footprint_width = footprint.bounds[2] - footprint.bounds[0]
+                    if profile["width"] > 0:
+                        scale = footprint_width / profile["width"]
+                    else:
+                        scale = 1.0
+                else:
+                    footprint_depth = footprint.bounds[3] - footprint.bounds[1]
+                    if profile["width"] > 0:
+                        scale = footprint_depth / profile["width"]
+                    else:
+                        scale = 1.0
+
+                height = height * scale
+
             mesh = trimesh.creation.extrude_polygon(
                 footprint,
                 height,
                 engine="earcut"
             )
+
+            if overall_scale != 1.0:
+                mesh.apply_scale(overall_scale)
 
             meshes.append((mesh, footprint.bounds))
 

@@ -13,7 +13,7 @@ class Open3DBuilder(BaseMeshBuilder):
         os.makedirs(self.debug_dir, exist_ok=True)
       #
     
-    def build(self, volumes, height_map=None):
+    def build(self, volumes, overall_scale=1.0, height_map=None):
         meshes = []
 
         #DEBUG
@@ -29,6 +29,9 @@ class Open3DBuilder(BaseMeshBuilder):
              height=vlm["height"],
              depth=vlm["depth"]
           )
+
+          if overall_scale != 1.0:
+              box.scale(overall_scale, center=box.get_center())
 
           # Move it
           box.translate([vlm["x"], 0, vlm["y"]])

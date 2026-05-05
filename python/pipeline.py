@@ -12,13 +12,14 @@ from segmentation_sam import segment_object
 
 
 import os
+import sys
 import cv2
 import trimesh
 import numpy as np
 from PIL import Image
 import traceback
 
-def run_pipeline(monument_path, output_path):
+def run_pipeline(monument_path, output_path, scale_factor=1.0):
   
   #all_shapes = []
   all_volumes = []
@@ -212,8 +213,8 @@ if __name__ == "__main__":
   
   base_dir = os.path.dirname(os.path.abspath(__file__))
 
-  input_folder = os.path.join(base_dir, "..", "input", "monument_01")
-  output_file = os.path.join(base_dir, "output", "monument_01.glb")
+  input_folder = os.path.join(base_dir, "..", "input", "monument_03")
+  output_file = os.path.join(base_dir, "output", "monument_03.glb")
 
   input_folder = os.path.abspath(input_folder)
   output_file = os.path.abspath(output_file)
@@ -225,8 +226,21 @@ if __name__ == "__main__":
   #print("Current working directory:", os.getcwd())
   #print("Trying to access:", os.path.abspath(input_folder))
   
+  scale_arg = os.environ.get("MODEL_SCALE", "1.0")
+  for arg in sys.argv[1:]:
+    if arg.startswith("--scale="):
+      scale_arg = arg.split("=", 1)[1]
+
+  try:
+    scale_factor = float(scale_arg)
+  except ValueError:
+    print(f"Invalid scale value: {scale_arg}. Using 1.0")
+    scale_factor = 1.0
+
+  print(f"Using model scale: {scale_factor}")
+
   if os.path.exists(input_folder):
-    run_pipeline(input_folder, output_file)
+    run_pipeline(input_folder, output_file, scale_factor)
   else:
     print(f"Erro: A pasta de entrada {input_folder} não existe.")
  
