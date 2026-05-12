@@ -122,6 +122,10 @@ def create_material(name, image_path=None, normal_path=None):
         tex.extension = 'REPEAT'
         tex.image.colorspace_settings.name = 'sRGB'
         links.new(tex.outputs['Color'], principled.inputs['Base Color'])
+        if 'Alpha' in tex.outputs:
+            links.new(tex.outputs['Alpha'], principled.inputs['Alpha'])
+            material.blend_method = 'BLEND'
+            material.shadow_method = 'NONE'
 
     if normal_path and os.path.exists(normal_path):
         normal_tex = nodes.new(type='ShaderNodeTexImage')
@@ -198,10 +202,11 @@ def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height
             normalized = sample_profile_height(profile, t)
             if normalized is None:
                 continue
-            scale = float(profile.get('width', footprint_width))
-            if scale == 0:
-                scale = footprint_width
-            heights.append(normalized * float(profile.get('height', 1.0)) * (footprint_width / scale))
+            profile_width = float(profile.get('rotated_width', profile.get('width', footprint_width)))
+            profile_height = float(profile.get('rotated_height', profile.get('height', 1.0)))
+            if profile_width == 0:
+                profile_width = footprint_width
+            heights.append(normalized * profile_height * (footprint_width / profile_width))
         elif view in ('left', 'right'):
             if footprint_depth <= 0:
                 continue
@@ -210,10 +215,11 @@ def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height
             normalized = sample_profile_height(profile, t)
             if normalized is None:
                 continue
-            scale = float(profile.get('width', footprint_depth))
-            if scale == 0:
-                scale = footprint_depth
-            heights.append(normalized * float(profile.get('height', 1.0)) * (footprint_depth / scale))
+            profile_width = float(profile.get('rotated_width', profile.get('width', footprint_depth)))
+            profile_height = float(profile.get('rotated_height', profile.get('height', 1.0)))
+            if profile_width == 0:
+                profile_width = footprint_depth
+            heights.append(normalized * profile_height * (footprint_depth / profile_width))
 
     if not heights:
         return default_height

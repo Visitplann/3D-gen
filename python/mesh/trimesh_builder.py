@@ -60,24 +60,40 @@ class TrimeshBuilder(BaseMeshBuilder):
 
             for footprint, profile in matches:
 
-                height = profile["height"] if profile else 30  # Default height for complex shapes
-
                 if profile:
+                    profile_height = float(profile.get("height", 30))
+                    profile_width = float(profile.get("width", 0))
+                    rotated_width = float(profile.get("rotated_width", profile_width))
+                    rotated_height = float(profile.get("rotated_height", profile_height))
+
+                    # Use the rotated contour dimensions if they provide a better height/width estimate
+                    if rotated_width > 0 and rotated_height > 0:
+                        if rotated_height >= rotated_width:
+                            profile_height = rotated_height
+                            profile_width = rotated_width
+                        else:
+                            profile_height = rotated_width
+                            profile_width = rotated_height
+
+                    height = profile_height
+
                     # Apply scaling based on footprint dimensions
                     if profile["view"] in ("front", "back"):
                         footprint_width = footprint.bounds[2] - footprint.bounds[0]
-                        if profile["width"] > 0:
-                            scale = footprint_width / profile["width"]
+                        if profile_width > 0:
+                            scale = footprint_width / profile_width
                         else:
                             scale = 1.0
                     else:
                         footprint_depth = footprint.bounds[3] - footprint.bounds[1]
-                        if profile["width"] > 0:
-                            scale = footprint_depth / profile["width"]
+                        if profile_width > 0:
+                            scale = footprint_depth / profile_width
                         else:
                             scale = 1.0
 
                     height = height * scale
+                else:
+                    height = 30  # Default height for complex shapes
 
                 mesh = trimesh.creation.extrude_polygon(
                     footprint,
@@ -137,7 +153,7 @@ class TrimeshBuilder(BaseMeshBuilder):
 
             for pr in profiles:
                 px = pr["x"]
-                pw = cv2.boundingRect(pr["contour"])[2]
+                pw = float(pr.get("rotated_width", cv2.boundingRect(pr["contour"])[2]))
 
                 dx = abs(minx - px)
                 dw = abs(fw - pw)
@@ -240,11 +256,15 @@ class TrimeshBuilder(BaseMeshBuilder):
                 baseColorTexture=base_image,
                 normalTexture=normal_image,
                 metallicFactor=0.0,
-                roughnessFactor=1.0
+                roughnessFactor=1.0,
+                alphaMode='BLEND'
             )
         else:
-            material = trimesh.visual.material.SimpleMaterial(
-                image=base_image
+            material = trimesh.visual.material.PBRMaterial(
+                baseColorTexture=base_image,
+                metallicFactor=0.0,
+                roughnessFactor=1.0,
+                alphaMode='BLEND'
             )
 
         # --- Apply ---
@@ -326,7 +346,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=front_bounds,
                     coord_system="xz",
-                    preserve_aspect=False,
+                    preserve_aspect=True,
                     rotate=texture_rotations.get("front", 0)
                 )
                 meshes.append(m)
@@ -342,7 +362,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=back_bounds,
                     coord_system="xz",
-                    preserve_aspect=False,
+                    preserve_aspect=True,
                     rotate=texture_rotations.get("back", 0)
                 )
                 meshes.append(m)
@@ -358,7 +378,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=left_bounds,
                     coord_system="yz",
-                    preserve_aspect=False,
+                    preserve_aspect=True,
                     rotate=texture_rotations.get("left", 0)
                 )
                 meshes.append(m)
@@ -374,7 +394,7 @@ class TrimeshBuilder(BaseMeshBuilder):
                     norm,
                     bounds=right_bounds,
                     coord_system="yz",
-                    preserve_aspect=False,
+                    preserve_aspect=True,
                     rotate=texture_rotations.get("right", 0)
                 )
                 meshes.append(m)

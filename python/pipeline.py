@@ -137,7 +137,7 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
         #DEBUG
         print("ALBEDO SHAPE:", albedo.shape)
         #
-        cv2.imwrite(albedo_path, albedo)
+        Image.fromarray(albedo).save(albedo_path, format='PNG')
 
         # Generate the normal map from the full gray image, then crop it to the
         # same bounding box as the albedo so normal and albedo textures align.
@@ -153,7 +153,7 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
         mask_crop = mask[y_bbox:y_bbox+h_bbox, x_bbox:x_bbox+w_bbox]
         normal[mask_crop == 0] = [128, 128, 255]
 
-        cv2.imwrite(normal_path, normal[:, :, ::-1])
+        Image.fromarray(normal).save(normal_path, format='PNG')
         
         #textures = {
         #  "top": ("top_albedo.png", "top_normal.png"),
@@ -214,7 +214,13 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
           mesh,
           textures,
           preserve_aspect=True,
-          texture_rotations={"top": 270}
+          texture_rotations={
+              "top": 270,
+              "front": 0,
+              "back": 180,
+              "left": 90,
+              "right": 270,
+          }
       )
     
       export_glb(objtexnorm, output_path)

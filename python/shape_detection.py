@@ -220,29 +220,22 @@ def texture_cutout(clean_img, mon_shapes):
         rgba = cv2.cvtColor(clean_img, cv2.COLOR_GRAY2BGRA)
 
     elif clean_img.shape[2] == 3:
-        # BGR → BGRA
-        rgba = cv2.cvtColor(clean_img, cv2.COLOR_BGR2BGRA)
+        # RGB → BGRA
+        rgba = cv2.cvtColor(clean_img, cv2.COLOR_RGB2BGRA)
 
     else:
         # already RGBA
         rgba = clean_img.copy()
 
+    # Preserve mask transparency and clear background RGB
+    foreground = cv2.bitwise_and(rgba[:, :, 0:3], rgba[:, :, 0:3], mask=mask)
+    rgba[:, :, 0:3] = foreground
+    rgba[:, :, 3] = cv2.GaussianBlur(mask, (5, 5), 0)
 
-    # Apply mask as alpha channel(OLD)
-    #rgba[:, :, 3] = mask
-
-
-    # Apply mask to RGB too
-    rgba[:, :, 0:3] = cv2.bitwise_and(rgba[:, :, 0:3], rgba[:, :, 0:3], mask=mask)
-
-    # Alpha channel
-    rgba[:, :, 3] = mask
-    
     #Crop to bounding box of the shape
     x, y, w, h = cv2.boundingRect(mask)
 
     rgba = rgba[y:y+h, x:x+w]
-    mask = mask[y:y+h, x:x+w]
     
     #Debug
     _show_debug_image("Debug Texture", rgba)

@@ -1,5 +1,21 @@
 import cv2
 
+
+def measure_contour_dimensions(contour):
+    x, y, w, h = cv2.boundingRect(contour)
+    rect = cv2.minAreaRect(contour)
+    ((cx, cy), (rw, rh), angle) = rect
+    return {
+        "bbox_x": x,
+        "bbox_y": y,
+        "bbox_w": w,
+        "bbox_h": h,
+        "rotated_width": float(rw),
+        "rotated_height": float(rh),
+        "rotated_angle": float(angle),
+    }
+
+
 def infer_volumes(shapes, view_type):
 
   volumes = []
@@ -17,6 +33,8 @@ def infer_volumes(shapes, view_type):
 
     x, y, w, h = cv2.boundingRect(shape)
 
+    dims = measure_contour_dimensions(shape)
+
     if is_top:
       # For top view, create footprint volumes for each significant shape
       volume = {
@@ -26,6 +44,11 @@ def infer_volumes(shapes, view_type):
           "y": y,
           "width": w,
           "depth": h,
+          "bbox_w": dims["bbox_w"],
+          "bbox_h": dims["bbox_h"],
+          "rotated_width": dims["rotated_width"],
+          "rotated_depth": dims["rotated_height"],
+          "rotated_angle": dims["rotated_angle"],
           "shape_index": i  # Track which shape this is
       }
     elif is_side:
@@ -37,6 +60,11 @@ def infer_volumes(shapes, view_type):
             "x": x,
             "y": y,
             "width": w,
+            "bbox_w": dims["bbox_w"],
+            "bbox_h": dims["bbox_h"],
+            "rotated_width": dims["rotated_width"],
+            "rotated_height": dims["rotated_height"],
+            "rotated_angle": dims["rotated_angle"],
             "view": view_type,
             "shape_index": i
         }
