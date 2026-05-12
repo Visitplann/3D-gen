@@ -26,7 +26,7 @@ import traceback
 # Set complex mode via environment
 #COMPLEX_MODE=true MODEL_SCALE=1.0 python python/pipeline.py. see line 236
 
-def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=False):
+def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=False, builder_method="trimesh"):
   
   #all_shapes = []
   all_volumes = []
@@ -196,18 +196,29 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
       print("Erro: Nenhuma textura foi gerada.")
       return
     
-    builder = get_mesh_builder(method="trimesh")
-    mesh = builder.build(all_volumes, overall_scale=scale_factor, complex_mode=complex_mode)
+    builder = get_mesh_builder(method=builder_method)
+
+    if builder_method == "blender":
+      builder.build(
+        all_volumes,
+        overall_scale=scale_factor,
+        complex_mode=complex_mode,
+        output_path=output_path,
+        textures=textures
+      )
+      print(f"Sucesso! Ficheiro exportado para: {output_path}")
+    else:
+      mesh = builder.build(all_volumes, overall_scale=scale_factor, complex_mode=complex_mode)
+      
+      objtexnorm = builder.apply_texture_to_mesh(
+          mesh,
+          textures,
+          preserve_aspect=True,
+          texture_rotations={"top": 270}
+      )
     
-    objtexnorm = builder.apply_texture_to_mesh(
-        mesh,
-        textures,
-        preserve_aspect=True,
-        texture_rotations={"top": 270}
-    )
-  
-    export_glb(objtexnorm, output_path)
-    print(f"Sucesso! Ficheiro exportado para: {output_path}")
+      export_glb(objtexnorm, output_path)
+      print(f"Sucesso! Ficheiro exportado para: {output_path}")
     
   except Exception as expt:
     print("Ocorreu um erro crítico no pipeline:")
@@ -235,11 +246,14 @@ if __name__ == "__main__":
   scale_arg = os.environ.get("MODEL_SCALE", "1.0")
   complex_mode = os.environ.get("COMPLEX_MODE", "false").lower() == "true"
 
+  builder_method = os.environ.get("MESH_BUILDER", "trimesh")
   for arg in sys.argv[1:]:
     if arg.startswith("--scale="):
       scale_arg = arg.split("=", 1)[1]
     elif arg == "--complex":
       complex_mode = True
+    elif arg.startswith("--builder="):
+      builder_method = arg.split("=", 1)[1]
 
   try:
     scale_factor = float(scale_arg)
@@ -249,9 +263,10 @@ if __name__ == "__main__":
 
   print(f"Using model scale: {scale_factor}")
   print(f"Complex mode: {complex_mode}")
+  print(f"Mesh builder: {builder_method}")
 
   if os.path.exists(input_folder):
-    run_pipeline(input_folder, output_file, scale_factor, complex_mode)
+    run_pipeline(input_folder, output_file, scale_factor, complex_mode, builder_method=builder_method)
   else:
     print(f"Erro: A pasta de entrada {input_folder} não existe.")
  
