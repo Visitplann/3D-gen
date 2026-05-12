@@ -201,8 +201,8 @@ def spot_filler(img):
                     
 def texture_cutout(clean_img, mon_shapes):
     """
-    Applies the detected shape(s) as an alpha mask to the clean image,
-    making everything outside the shapes fully transparent.
+    Applies the detected shape(s) to the clean image and fills the surrounding
+    area so textures are opaque and do not show black or transparent borders.
     """
 
     h, w = clean_img.shape[:2]
@@ -216,27 +216,36 @@ def texture_cutout(clean_img, mon_shapes):
 
     # Convertions
     if len(clean_img.shape) == 2:
-        # grayscale → convert to BGRA
-        rgba = cv2.cvtColor(clean_img, cv2.COLOR_GRAY2BGRA)
+        # grayscale → convert to RGBA
+        rgba = cv2.cvtColor(clean_img, cv2.COLOR_GRAY2RGBA)
 
     elif clean_img.shape[2] == 3:
-        # RGB → BGRA
-        rgba = cv2.cvtColor(clean_img, cv2.COLOR_RGB2BGRA)
+        # RGB → RGBA
+        rgba = cv2.cvtColor(clean_img, cv2.COLOR_RGB2RGBA)
 
     else:
         # already RGBA
         rgba = clean_img.copy()
 
-    # Preserve mask transparency and clear background RGB
-    foreground = cv2.bitwise_and(rgba[:, :, 0:3], rgba[:, :, 0:3], mask=mask)
-    rgba[:, :, 0:3] = foreground
-    rgba[:, :, 3] = cv2.GaussianBlur(mask, (5, 5), 0)
-
-    #Crop to bounding box of the shape
+    # Generate a filled version so texture edges don't show black/transparent borders.
     x, y, w, h = cv2.boundingRect(mask)
+    cropped_img = clean_img[y:y+h, x:x+w]
+    if cropped_img.ndim == 3 and cropped_img.shape[2] == 4:
+        cropped_img = cropped_img[:, :, :3]
+    cropped_mask = mask[y:y+h, x:x+w]
+    inv_mask = cv2.bitwise_not(cropped_mask)
 
-    rgba = rgba[y:y+h, x:x+w]
-    
+    filled = cv2.inpaint(
+        cv2.cvtColor(cropped_img, cv2.COLOR_RGB2BGR),
+        inv_mask,
+        3,
+        cv2.INPAINT_TELEA
+    )
+    filled = cv2.cvtColor(filled, cv2.COLOR_BGR2RGB)
+
+    rgba = cv2.cvtColor(filled, cv2.COLOR_RGB2RGBA)
+    rgba[:, :, 3] = 255
+
     #Debug
     _show_debug_image("Debug Texture", rgba)
 

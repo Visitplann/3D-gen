@@ -335,18 +335,22 @@ class TrimeshBuilder(BaseMeshBuilder):
                 )
                 meshes.append(top_mesh)
 
+            object_bounds = mesh.bounds
+            object_min_x, object_min_y, object_min_z = object_bounds[0]
+            object_max_x, object_max_y, object_max_z = object_bounds[1]
+
             # --- FRONT ---
             if faces_front and "front" in textures:
                 m = mesh.submesh([faces_front], append=True)
                 tex, norm = textures["front"]
-                front_bounds = self._get_submesh_bounds_xz(m)
+                front_bounds = (object_min_x, object_min_z, object_max_x, object_max_z)
                 m = self.apply_texture_simple(
                     m,
                     tex,
                     norm,
                     bounds=front_bounds,
                     coord_system="xz",
-                    preserve_aspect=True,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("front", 0)
                 )
                 meshes.append(m)
@@ -355,14 +359,14 @@ class TrimeshBuilder(BaseMeshBuilder):
             if faces_back and "back" in textures:
                 m = mesh.submesh([faces_back], append=True)
                 tex, norm = textures["back"]
-                back_bounds = self._get_submesh_bounds_xz(m)
+                back_bounds = (object_min_x, object_min_z, object_max_x, object_max_z)
                 m = self.apply_texture_simple(
                     m,
                     tex,
                     norm,
                     bounds=back_bounds,
                     coord_system="xz",
-                    preserve_aspect=True,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("back", 0)
                 )
                 meshes.append(m)
@@ -371,14 +375,14 @@ class TrimeshBuilder(BaseMeshBuilder):
             if faces_left and "left" in textures:
                 m = mesh.submesh([faces_left], append=True)
                 tex, norm = textures["left"]
-                left_bounds = self._get_submesh_bounds_yz(m)
+                left_bounds = (object_min_y, object_min_z, object_max_y, object_max_z)
                 m = self.apply_texture_simple(
                     m,
                     tex,
                     norm,
                     bounds=left_bounds,
                     coord_system="yz",
-                    preserve_aspect=True,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("left", 0)
                 )
                 meshes.append(m)
@@ -387,14 +391,14 @@ class TrimeshBuilder(BaseMeshBuilder):
             if faces_right and "right" in textures:
                 m = mesh.submesh([faces_right], append=True)
                 tex, norm = textures["right"]
-                right_bounds = self._get_submesh_bounds_yz(m)
+                right_bounds = (object_min_y, object_min_z, object_max_y, object_max_z)
                 m = self.apply_texture_simple(
                     m,
                     tex,
                     norm,
                     bounds=right_bounds,
                     coord_system="yz",
-                    preserve_aspect=True,
+                    preserve_aspect=False,
                     rotate=texture_rotations.get("right", 0)
                 )
                 meshes.append(m)

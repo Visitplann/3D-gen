@@ -121,6 +121,7 @@ def create_material(name, image_path=None, normal_path=None):
         tex.interpolation = 'Cubic'
         tex.extension = 'REPEAT'
         tex.image.colorspace_settings.name = 'sRGB'
+        tex.image.alpha_mode = 'STRAIGHT'
         links.new(tex.outputs['Color'], principled.inputs['Base Color'])
         if 'Alpha' in tex.outputs:
             links.new(tex.outputs['Alpha'], principled.inputs['Alpha'])
@@ -367,7 +368,7 @@ def build_scene(payload):
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
         bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.uv.smart_project(angle_limit=66.0, island_margin=0.02)
+        bpy.ops.uv.cube_project(cube_size=1.0, scale_to_bounds=True)
         bpy.ops.object.mode_set(mode='OBJECT')
         obj.select_set(False)
 
