@@ -120,7 +120,9 @@ def create_material(name, image_path=None, normal_path=None):
         tex.location = (-400, 200)
         tex.interpolation = 'Cubic'
         tex.extension = 'REPEAT'
-        tex.image.colorspace_settings.name = 'sRGB'
+        if tex.image.colorspace_settings is not None:
+            tex.image.colorspace_settings.name = 'sRGB'
+            tex.image.colorspace_settings.is_data = False
         tex.image.alpha_mode = 'STRAIGHT'
         links.new(tex.outputs['Color'], principled.inputs['Base Color'])
         if 'Alpha' in tex.outputs:
@@ -131,7 +133,9 @@ def create_material(name, image_path=None, normal_path=None):
     if normal_path and os.path.exists(normal_path):
         normal_tex = nodes.new(type='ShaderNodeTexImage')
         normal_tex.image = bpy.data.images.load(normal_path)
-        normal_tex.image.colorspace_settings.name = 'Non-Color'
+        if normal_tex.image.colorspace_settings is not None:
+            normal_tex.image.colorspace_settings.name = 'Non-Color'
+            normal_tex.image.colorspace_settings.is_data = True
         normal_tex.location = (-400, -100)
 
         normal_map = nodes.new(type='ShaderNodeNormalMap')
@@ -317,6 +321,44 @@ def face_side(face):
     return 'side'
 
 
+def assign_uvs(obj):
+    mesh = obj.data
+    if not mesh.uv_layers:
+        mesh.uv_layers.new(name='UVMap')
+    uv_layer = mesh.uv_layers.active.data
+
+    xs = [v.co.x for v in mesh.vertices]
+    ys = [v.co.y for v in mesh.vertices]
+    zs = [v.co.z for v in mesh.vertices]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    min_z, max_z = min(zs), max(zs)
+    width = max(max_x - min_x, 1e-6)
+    depth = max(max_y - min_y, 1e-6)
+    height = max(max_z - min_z, 1e-6)
+
+    for poly in mesh.polygons:
+        side = face_side(poly)
+        for loop_index in poly.loop_indices:
+            loop = mesh.loops[loop_index]
+            vert = mesh.vertices[loop.vertex_index]
+
+            if side == 'top':
+                u = (vert.co.x - min_x) / width
+                v = (vert.co.y - min_y) / depth
+            elif side in ('front', 'back'):
+                u = (vert.co.x - min_x) / width
+                v = (vert.co.z - min_z) / height
+            elif side in ('left', 'right'):
+                u = (vert.co.y - min_y) / depth
+                v = (vert.co.z - min_z) / height
+            else:
+                u = (vert.co.x - min_x) / width
+                v = (vert.co.y - min_y) / depth
+
+            uv_layer[loop_index].uv = (u, v)
+
+
 def get_polygon_bounds(polygon):
     xs = [p[0] for p in polygon]
     ys = [p[1] for p in polygon]
@@ -367,9 +409,7 @@ def build_scene(payload):
     for obj in objects:
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.uv.cube_project(cube_size=1.0, scale_to_bounds=True)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        assign_uvs(obj)
         obj.select_set(False)
 
         material_names = []
