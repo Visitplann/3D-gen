@@ -131,13 +131,114 @@ def create_material(name, image_path=None, normal_path=None):
 
         normal_map = nodes.new(type='ShaderNodeNormalMap')
         normal_map.location = (-200, -100)
+        normal_map.inputs['Strength'].default_value = 0.8
         links.new(normal_tex.outputs['Color'], normal_map.inputs['Color'])
         links.new(normal_map.outputs['Normal'], principled.inputs['Normal'])
 
     return material
 
 
-def create_extruded_mesh(name, polygon, height):
+def sample_profile_height(profile, t):
+    pts = profile.get('contour', [])
+    if not pts:
+        return None
+
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    if max_x == min_x or max_y == min_y:
+        return None
+
+    target_x = min_x + t * (max_x - min_x)
+    samples = {}
+    for x, y in pts:
+        height = max_y - y
+        samples.setdefault(x, []).append(height)
+
+    points = [(x, max(heights)) for x, heights in samples.items()]
+    points.sort(key=lambda item: item[0])
+
+    if not points:
+        return None
+
+    if target_x <= points[0][0]:
+        interp = points[0][1]
+    elif target_x >= points[-1][0]:
+        interp = points[-1][1]
+    else:
+        interp = points[-1][1]
+        for i in range(len(points) - 1):
+            x0, h0 = points[i]
+            x1, h1 = points[i + 1]
+            if x0 <= target_x <= x1:
+                ratio = (target_x - x0) / (x1 - x0) if x1 != x0 else 0.0
+                interp = h0 + (h1 - h0) * ratio
+                break
+
+    return interp / (max_y - min_y)
+
+
+def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height):
+    min_x, max_x, min_y, max_y = footprint_bounds
+    if max_x == min_x or max_y == min_y:
+        return default_height
+
+    heights = []
+    footprint_width = max_x - min_x
+    footprint_depth = max_y - min_y
+
+    for profile in profiles:
+        view = profile.get('view')
+        if view in ('front', 'back'):
+            if footprint_width <= 0:
+                continue
+            t = (vertex.x - min_x) / footprint_width
+            t = max(0.0, min(1.0, t))
+            normalized = sample_profile_height(profile, t)
+            if normalized is None:
+                continue
+            scale = float(profile.get('width', footprint_width))
+            if scale == 0:
+                scale = footprint_width
+            heights.append(normalized * float(profile.get('height', 1.0)) * (footprint_width / scale))
+        elif view in ('left', 'right'):
+            if footprint_depth <= 0:
+                continue
+            t = (vertex.y - min_y) / footprint_depth
+            t = max(0.0, min(1.0, t))
+            normalized = sample_profile_height(profile, t)
+            if normalized is None:
+                continue
+            scale = float(profile.get('width', footprint_depth))
+            if scale == 0:
+                scale = footprint_depth
+            heights.append(normalized * float(profile.get('height', 1.0)) * (footprint_depth / scale))
+
+    if not heights:
+        return default_height
+
+    return max(heights)
+
+
+def apply_profile_deformation(obj, footprint, profiles, default_height):
+    if not profiles:
+        return
+
+    min_x, max_x, min_y, max_y = get_polygon_bounds(footprint)
+    footprint_bounds = (min_x, max_x, min_y, max_y)
+    mesh = obj.data
+
+    for vertex in mesh.vertices:
+        if vertex.co.z <= 0.0:
+            continue
+        new_z = get_vertex_profile_height(vertex.co, footprint_bounds, profiles, default_height)
+        vertex.co.z = new_z
+
+    mesh.update()
+
+
+def create_extruded_mesh(name, polygon, height, profiles=None, scale=1.0):
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
@@ -165,7 +266,29 @@ def create_extruded_mesh(name, polygon, height):
     obj.location = (0.0, 0.0, 0.0)
     mesh.normals_split_custom_set_from_vertices([v.normal for v in mesh.vertices])
     mesh.use_auto_smooth = True
+    mesh.auto_smooth_angle = math.radians(180.0)
     mesh.update()
+
+    apply_profile_deformation(obj, polygon, profiles or [], height)
+
+    # Apply Subdivision Surface and Bevel modifiers for a smoother Blender result
+    subdiv_mod = obj.modifiers.new(name="Subdivision", type='SUBSURF')
+    subdiv_mod.levels = 2
+    subdiv_mod.render_levels = 3
+
+    bevel_mod = obj.modifiers.new(name="Bevel", type='BEVEL')
+    bevel_mod.width = max(0.01, height * 0.01)
+    bevel_mod.segments = 3
+    bevel_mod.profile = 0.7
+    bevel_mod.limit_method = 'ANGLE'
+    bevel_mod.angle_limit = math.radians(30.0)
+
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.modifier_apply(modifier=subdiv_mod.name)
+    bpy.ops.object.modifier_apply(modifier=bevel_mod.name)
+    obj.select_set(False)
 
     return obj
 
@@ -185,6 +308,12 @@ def face_side(face):
     if normal.x < -0.5:
         return 'left'
     return 'side'
+
+
+def get_polygon_bounds(polygon):
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    return min(xs), max(xs), min(ys), max(ys)
 
 
 def build_scene(payload):
@@ -219,7 +348,13 @@ def build_scene(payload):
                     best = profile
             height = float(best.get('height', 30.0))
 
-        obj = create_extruded_mesh(f'blender_obj_{index}', footprint, height * float(scale))
+        obj = create_extruded_mesh(
+            f'blender_obj_{index}',
+            footprint,
+            height * float(scale),
+            profiles=profiles,
+            scale=scale
+        )
         objects.append(obj)
 
     for obj in objects:

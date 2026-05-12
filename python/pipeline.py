@@ -26,7 +26,7 @@ import traceback
 # Set complex mode via environment
 #COMPLEX_MODE=true MODEL_SCALE=1.0 python python/pipeline.py. see line 236
 
-def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=False, builder_method="trimesh"):
+def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=False, builder_method="blender"):
   
   #all_shapes = []
   all_volumes = []
@@ -230,8 +230,8 @@ if __name__ == "__main__":
   
   base_dir = os.path.dirname(os.path.abspath(__file__))
 
-  input_folder = os.path.join(base_dir, "..", "input", "monument_03")
-  output_file = os.path.join(base_dir, "output", "monument_03.glb")
+  input_folder = os.path.join(base_dir, "..", "input", "monument_01")
+  output_file = os.path.join(base_dir, "output", "monument_01.glb")
 
   input_folder = os.path.abspath(input_folder)
   output_file = os.path.abspath(output_file)
@@ -246,14 +246,14 @@ if __name__ == "__main__":
   scale_arg = os.environ.get("MODEL_SCALE", "1.0")
   complex_mode = os.environ.get("COMPLEX_MODE", "false").lower() == "true"
 
-  builder_method = os.environ.get("MESH_BUILDER", "trimesh")
+  builder_method = os.environ.get("MESH_BUILDER", "blender").lower()
   for arg in sys.argv[1:]:
     if arg.startswith("--scale="):
       scale_arg = arg.split("=", 1)[1]
     elif arg == "--complex":
       complex_mode = True
     elif arg.startswith("--builder="):
-      builder_method = arg.split("=", 1)[1]
+      builder_method = arg.split("=", 1)[1].lower()
 
   try:
     scale_factor = float(scale_arg)
