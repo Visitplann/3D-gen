@@ -298,8 +298,8 @@ if __name__ == "__main__":
   
   base_dir = os.path.dirname(os.path.abspath(__file__))
 
-  input_folder = os.path.join(base_dir, "..", "input", "monument_03")
-  output_file = os.path.join(base_dir, "output", "monument_03.glb")
+  input_folder = os.path.join(base_dir, "..", "input", "monument_01")
+  output_file = os.path.join(base_dir, "output", "monument_01.glb")
 
   input_folder = os.path.abspath(input_folder)
   output_file = os.path.abspath(output_file)

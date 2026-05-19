@@ -32,12 +32,44 @@ class BlenderBuilder(BaseMeshBuilder):
                     converted["contour"] = list(contour)
             serializable_volumes.append(converted)
 
+        # Compute dimensions and add to payload for Blender
+        footprints = [vlm for vlm in serializable_volumes if vlm.get('type') == 'footprint']
+        profiles = [vlm for vlm in serializable_volumes if vlm.get('type') == 'profile']
+        
+        object_dimensions = []
+        for fp in footprints:
+            footprint_width = float(fp.get('rotated_width', fp.get('width', 0)))
+            footprint_depth = float(fp.get('rotated_depth', fp.get('depth', 0)))
+            height = 30.0
+            if profiles:
+                preferred_order = ['front', 'right', 'left', 'back']
+                def priority(profile):
+                    view = profile.get('view')
+                    return preferred_order.index(view) if view in preferred_order else len(preferred_order)
+                best = min(profiles, key=priority)
+                if priority(best) < len(preferred_order):
+                    raw_height = float(best.get('height', 30.0))
+                    profile_width = float(best.get('rotated_width', best.get('width', 0)))
+                    profile_view = best.get('view')
+                    if profile_view in ('front', 'back') and profile_width > 0:
+                        height = raw_height * (footprint_width / profile_width)
+                    elif profile_view in ('left', 'right') and profile_width > 0:
+                        height = raw_height * (footprint_depth / profile_width)
+                    else:
+                        height = raw_height
+            
+            scaled_w = footprint_width * overall_scale
+            scaled_d = footprint_depth * overall_scale
+            scaled_h = height * overall_scale
+            object_dimensions.append({"width": scaled_w, "depth": scaled_d, "height": scaled_h})
+
         payload = {
             "volumes": serializable_volumes,
             "scale": overall_scale,
             "complex_mode": complex_mode,
             "output_path": output_path,
             "textures": textures,
+            "object_dimensions": object_dimensions,
         }
 
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as json_file:
@@ -203,21 +235,29 @@ def sample_profile_height(profile, t):
     return interp / (max_y - min_y)
 
 
-def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height):
+def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height, explicit_width=None, explicit_depth=None):
     min_x, max_x, min_y, max_y = footprint_bounds
     if max_x == min_x or max_y == min_y:
         return default_height
 
-    heights = []
-    footprint_width = max_x - min_x
-    footprint_depth = max_y - min_y
+    # Use explicit dimensions if provided
+    if explicit_width is not None:
+        footprint_width = explicit_width
+    else:
+        footprint_width = max_x - min_x
+    
+    if explicit_depth is not None:
+        footprint_depth = explicit_depth
+    else:
+        footprint_depth = max_y - min_y
 
+    heights = []
     for profile in profiles:
         view = profile.get('view')
         if view in ('front', 'back'):
             if footprint_width <= 0:
                 continue
-            t = (vertex.x - min_x) / footprint_width
+            t = (vertex.x - min_x) / (max_x - min_x) if (max_x - min_x) > 0 else 0.5
             if view == 'back':
                 t = 1.0 - t
             t = max(0.0, min(1.0, t))
@@ -232,7 +272,7 @@ def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height
         elif view in ('left', 'right'):
             if footprint_depth <= 0:
                 continue
-            t = (vertex.y - min_y) / footprint_depth
+            t = (vertex.y - min_y) / (max_y - min_y) if (max_y - min_y) > 0 else 0.5
             if view == 'left':
                 t = 1.0 - t
             t = max(0.0, min(1.0, t))
@@ -251,20 +291,29 @@ def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height
     return max(heights)
 
 
-def apply_profile_deformation(obj, footprint, profiles, default_height):
+def apply_profile_deformation(obj, footprint, profiles, default_height, explicit_width=None, explicit_depth=None):
     # Apply profile-based deformation with edge smoothing and validation
     if not profiles:
         return
 
     min_x, max_x, min_y, max_y = get_polygon_bounds(footprint)
     footprint_bounds = (min_x, max_x, min_y, max_y)
+    
+    # Use explicit dimensions if provided, otherwise use computed bounds
+    if explicit_width is not None and explicit_depth is not None:
+        footprint_width = explicit_width * (1.0 if explicit_width > 0 else 1.0)
+        footprint_depth = explicit_depth * (1.0 if explicit_depth > 0 else 1.0)
+    else:
+        footprint_width = max_x - min_x
+        footprint_depth = max_y - min_y
+    
     mesh = obj.data
 
     # First pass: apply height deformation
     for vertex in mesh.vertices:
         if vertex.co.z <= 0.0:
             continue
-        new_z = get_vertex_profile_height(vertex.co, footprint_bounds, profiles, default_height)
+        new_z = get_vertex_profile_height(vertex.co, footprint_bounds, profiles, default_height, footprint_width, footprint_depth)
         vertex.co.z = new_z
 
     mesh.update()
@@ -273,15 +322,16 @@ def apply_profile_deformation(obj, footprint, profiles, default_height):
     smooth_edge_transitions(obj, footprint_bounds)
 
 
-def create_extruded_mesh(name, polygon, height, profiles=None, scale=1.0):
+def create_extruded_mesh(name, polygon, height, profiles=None, scale=1.0, explicit_width=None, explicit_depth=None):
     # Create extruded mesh with improved geometry and edge transitions
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
 
     bm = bmesh.new()
+    scaled_polygon = [(x * scale, y * scale) for x, y in polygon]
     verts = []
-    for x, y in polygon:
+    for x, y in scaled_polygon:
         verts.append(bm.verts.new((x, y, 0.0)))
 
     bm.verts.ensure_lookup_table()
@@ -340,7 +390,7 @@ def create_extruded_mesh(name, polygon, height, profiles=None, scale=1.0):
     mesh.auto_smooth_angle = math.radians(180.0)
     mesh.update()
 
-    apply_profile_deformation(obj, polygon, profiles or [], height)
+    apply_profile_deformation(obj, scaled_polygon, profiles or [], height, explicit_width=explicit_width, explicit_depth=explicit_depth)
 
     # Apply enhanced modifiers for better edge continuity
     # Higher subdivision for smoother transitions
@@ -389,8 +439,8 @@ def face_side(face):
     return 'side'
 
 
-def assign_uvs(obj):
-    # Assign UVs manually with explicit orientation for each side.
+def assign_uvs(obj, explicit_width=None, explicit_depth=None, explicit_height=None):
+    # Assign UVs manually with explicit orientation for each side, using computed dimensions.
     mesh = obj.data
     if not mesh.uv_layers:
         mesh.uv_layers.new(name='UVMap')
@@ -402,9 +452,22 @@ def assign_uvs(obj):
     min_x, max_x = min(xs), max(xs)
     min_y, max_y = min(ys), max(ys)
     min_z, max_z = min(zs), max(zs)
-    width = max(max_x - min_x, 1e-6)
-    depth = max(max_y - min_y, 1e-6)
-    height = max(max_z - min_z, 1e-6)
+    
+    # Use explicit dimensions if provided, otherwise compute from mesh
+    if explicit_width is not None:
+        width = explicit_width
+    else:
+        width = max(max_x - min_x, 1e-6)
+    
+    if explicit_depth is not None:
+        depth = explicit_depth
+    else:
+        depth = max(max_y - min_y, 1e-6)
+    
+    if explicit_height is not None:
+        height = explicit_height
+    else:
+        height = max(max_z - min_z, 1e-6)
 
     padding = 0.01
     uv_padding = 0.02
@@ -489,6 +552,7 @@ def build_scene(payload):
     textures = payload.get('textures', {})
     scale = payload.get('scale', 1.0)
     output_path = payload.get('output_path')
+    object_dimensions = payload.get('object_dimensions', [])
 
     footprints = []
     profiles = []
@@ -506,27 +570,32 @@ def build_scene(payload):
 
     objects = []
     for index, footprint in enumerate(footprints):
-        height = 30.0
-        if profiles:
-            best = profiles[0]
-            for profile in profiles:
-                if profile.get('height', 0) > best.get('height', 0):
-                    best = profile
-            height = float(best.get('height', 30.0))
+        dims = object_dimensions[index] if index < len(object_dimensions) else {}
+        explicit_width = dims.get('width')
+        explicit_depth = dims.get('depth')
+        explicit_height = dims.get('height', 30.0)
+
+        print(
+            f'Actual dimensions - Width x Height x Depth: '
+            f'{explicit_width:.2f} x {explicit_height:.2f} x {explicit_depth:.2f}'
+        )
 
         obj = create_extruded_mesh(
             f'blender_obj_{index}',
             footprint,
-            height * float(scale),
+            explicit_height,
             profiles=profiles,
-            scale=scale
+            scale=1.0,
+            explicit_width=explicit_width,
+            explicit_depth=explicit_depth
         )
         objects.append(obj)
 
-    for obj in objects:
+    for index, obj in enumerate(objects):
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
-        assign_uvs(obj)
+        dims = object_dimensions[index] if index < len(object_dimensions) else {}
+        assign_uvs(obj, explicit_width=dims.get('width'), explicit_depth=dims.get('depth'), explicit_height=dims.get('height'))
         obj.select_set(False)
 
         material_names = []
