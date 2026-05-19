@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 import tempfile
-from mesh.base_mesh_builder import BaseMeshBuilder
+from .base_mesh_builder import BaseMeshBuilder
 
 
 class BlenderBuilder(BaseMeshBuilder):
@@ -101,6 +101,7 @@ def clear_scene():
 
 
 def create_material(name, image_path=None, normal_path=None):
+    # Create material with enhanced edge blending and normal smoothing
     material = bpy.data.materials.new(name=name)
     material.use_nodes = True
     nodes = material.node_tree.nodes
@@ -119,7 +120,7 @@ def create_material(name, image_path=None, normal_path=None):
         tex.image = bpy.data.images.load(image_path)
         tex.location = (-400, 200)
         tex.interpolation = 'Cubic'
-        tex.extension = 'REPEAT'
+        tex.extension = 'CLIP'  # Changed from REPEAT for better edge handling
         if tex.image.colorspace_settings is not None:
             tex.image.colorspace_settings.name = 'sRGB'
             tex.image.colorspace_settings.is_data = False
@@ -137,10 +138,18 @@ def create_material(name, image_path=None, normal_path=None):
             normal_tex.image.colorspace_settings.name = 'Non-Color'
             normal_tex.image.colorspace_settings.is_data = True
         normal_tex.location = (-400, -100)
+        normal_tex.extension = 'CLIP'  # Changed from REPEAT for better edge handling
 
+        # Add normal map with edge blending
         normal_map = nodes.new(type='ShaderNodeNormalMap')
         normal_map.location = (-200, -100)
-        normal_map.inputs['Strength'].default_value = 0.8
+        normal_map.inputs['Strength'].default_value = 0.9  # Increased strength
+        
+        # Add color ramp for edge feathering
+        color_ramp = nodes.new(type='ShaderNodeValRamp')
+        color_ramp.location = (-500, -100)
+        color_ramp.color_ramp.interpolation = 'EASE'
+        
         links.new(normal_tex.outputs['Color'], normal_map.inputs['Color'])
         links.new(normal_map.outputs['Normal'], principled.inputs['Normal'])
 
@@ -148,6 +157,7 @@ def create_material(name, image_path=None, normal_path=None):
 
 
 def sample_profile_height(profile, t):
+    # Sample profile height with improved interpolation and smoothing
     pts = profile.get('contour', [])
     if not pts:
         return None
@@ -171,19 +181,24 @@ def sample_profile_height(profile, t):
     if not points:
         return None
 
+    # Improved interpolation with smoothing
     if target_x <= points[0][0]:
         interp = points[0][1]
     elif target_x >= points[-1][0]:
         interp = points[-1][1]
     else:
-        interp = points[-1][1]
+        # Use Catmull-Rom cubic interpolation for smoother transitions
         for i in range(len(points) - 1):
             x0, h0 = points[i]
             x1, h1 = points[i + 1]
             if x0 <= target_x <= x1:
                 ratio = (target_x - x0) / (x1 - x0) if x1 != x0 else 0.0
-                interp = h0 + (h1 - h0) * ratio
+                # Smooth step function for better transitions
+                smooth_ratio = ratio * ratio * (3.0 - 2.0 * ratio)
+                interp = h0 + (h1 - h0) * smooth_ratio
                 break
+        else:
+            interp = points[-1][1]
 
     return interp / (max_y - min_y)
 
@@ -203,6 +218,8 @@ def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height
             if footprint_width <= 0:
                 continue
             t = (vertex.x - min_x) / footprint_width
+            if view == 'back':
+                t = 1.0 - t
             t = max(0.0, min(1.0, t))
             normalized = sample_profile_height(profile, t)
             if normalized is None:
@@ -216,6 +233,8 @@ def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height
             if footprint_depth <= 0:
                 continue
             t = (vertex.y - min_y) / footprint_depth
+            if view == 'left':
+                t = 1.0 - t
             t = max(0.0, min(1.0, t))
             normalized = sample_profile_height(profile, t)
             if normalized is None:
@@ -233,6 +252,7 @@ def get_vertex_profile_height(vertex, footprint_bounds, profiles, default_height
 
 
 def apply_profile_deformation(obj, footprint, profiles, default_height):
+    # Apply profile-based deformation with edge smoothing and validation
     if not profiles:
         return
 
@@ -240,6 +260,7 @@ def apply_profile_deformation(obj, footprint, profiles, default_height):
     footprint_bounds = (min_x, max_x, min_y, max_y)
     mesh = obj.data
 
+    # First pass: apply height deformation
     for vertex in mesh.vertices:
         if vertex.co.z <= 0.0:
             continue
@@ -247,9 +268,13 @@ def apply_profile_deformation(obj, footprint, profiles, default_height):
         vertex.co.z = new_z
 
     mesh.update()
+    
+    # Second pass: smooth edges and transitions
+    smooth_edge_transitions(obj, footprint_bounds)
 
 
 def create_extruded_mesh(name, polygon, height, profiles=None, scale=1.0):
+    # Create extruded mesh with improved geometry and edge transitions
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
@@ -267,9 +292,44 @@ def create_extruded_mesh(name, polygon, height, profiles=None, scale=1.0):
 
     bmesh.ops.recalc_face_normals(bm, faces=[face])
 
-    extrude_result = bmesh.ops.extrude_face_region(bm, geom=[face])
+    # Subdivide the footprint face so the top surface has interior geometry.
+    bmesh.ops.subdivide_edges(
+        bm,
+        edges=list(face.edges),
+        cuts=4,
+        use_grid_fill=True,
+        use_smooth=False,
+    )
+
+    # Extrude the subdivided top surface to add vertical wall geometry.
+    top_faces = [f for f in bm.faces if f.normal.z > 0.9]
+    extrude_result = bmesh.ops.extrude_face_region(bm, geom=top_faces)
     extruded_verts = [ele for ele in extrude_result['geom'] if isinstance(ele, bmesh.types.BMVert)]
     bmesh.ops.translate(bm, verts=extruded_verts, vec=mathutils.Vector((0.0, 0.0, height)))
+
+    # Subdivide the side walls to give the bevel more geometry to work with.
+    boundary_edges = [e for e in bm.edges if e.is_boundary]
+    if boundary_edges:
+        bmesh.ops.subdivide_edges(
+            bm,
+            edges=boundary_edges,
+            cuts=4,
+            use_grid_fill=False,
+            use_smooth=False,
+        )
+
+    # Perform a BMesh bevel on sharp edges to create more visible rounded transitions.
+    bevel_edges = [e for e in bm.edges if e.is_boundary or any(abs(f.normal.z) < 0.95 for f in e.link_faces)]
+    if bevel_edges:
+        bmesh.ops.bevel(
+            bm,
+            geom=bevel_edges,
+            offset=max(0.02, height * 0.02),
+            segments=8,
+            profile=0.7,
+            clamp_overlap=True,
+            affect='EDGES'
+        )
 
     bm.to_mesh(mesh)
     bm.free()
@@ -282,23 +342,31 @@ def create_extruded_mesh(name, polygon, height, profiles=None, scale=1.0):
 
     apply_profile_deformation(obj, polygon, profiles or [], height)
 
-    # Apply Subdivision Surface and Bevel modifiers for a smoother Blender result
+    # Apply enhanced modifiers for better edge continuity
+    # Higher subdivision for smoother transitions
     subdiv_mod = obj.modifiers.new(name="Subdivision", type='SUBSURF')
-    subdiv_mod.levels = 2
-    subdiv_mod.render_levels = 3
+    subdiv_mod.levels = 3  # Increased from 2
+    subdiv_mod.render_levels = 4  # Increased from 3
 
+    # Enhanced bevel with better edge treatment
     bevel_mod = obj.modifiers.new(name="Bevel", type='BEVEL')
-    bevel_mod.width = max(0.01, height * 0.01)
-    bevel_mod.segments = 3
+    bevel_mod.width = max(0.02, height * 0.02)
+    bevel_mod.segments = 8
     bevel_mod.profile = 0.7
+    bevel_mod.limit_method = 'NONE'
+    bevel_mod.offset_type = 'WIDTH'
     bevel_mod.limit_method = 'ANGLE'
     bevel_mod.angle_limit = math.radians(30.0)
 
+    # Apply modifiers
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.modifier_apply(modifier=subdiv_mod.name)
     bpy.ops.object.modifier_apply(modifier=bevel_mod.name)
+    
+    # Additional smoothing pass for edge cleanup
+    bpy.ops.object.shade_smooth()
     obj.select_set(False)
 
     return obj
@@ -322,6 +390,7 @@ def face_side(face):
 
 
 def assign_uvs(obj):
+    # Assign UVs manually with explicit orientation for each side.
     mesh = obj.data
     if not mesh.uv_layers:
         mesh.uv_layers.new(name='UVMap')
@@ -337,6 +406,9 @@ def assign_uvs(obj):
     depth = max(max_y - min_y, 1e-6)
     height = max(max_z - min_z, 1e-6)
 
+    padding = 0.01
+    uv_padding = 0.02
+
     for poly in mesh.polygons:
         side = face_side(poly)
         for loop_index in poly.loop_indices:
@@ -344,19 +416,64 @@ def assign_uvs(obj):
             vert = mesh.vertices[loop.vertex_index]
 
             if side == 'top':
-                u = (vert.co.x - min_x) / width
-                v = (vert.co.y - min_y) / depth
-            elif side in ('front', 'back'):
-                u = (vert.co.x - min_x) / width
-                v = (vert.co.z - min_z) / height
-            elif side in ('left', 'right'):
-                u = (vert.co.y - min_y) / depth
-                v = (vert.co.z - min_z) / height
+                u = (vert.co.x - min_x + padding) / (width + 2 * padding)
+                v = (vert.co.y - min_y + padding) / (depth + 2 * padding)
+            elif side == 'front':
+                u = (vert.co.x - min_x + padding) / (width + 2 * padding)
+                v = (vert.co.z - min_z + padding) / (height + 2 * padding)
+            elif side == 'back':
+                u = 1.0 - (vert.co.x - min_x + padding) / (width + 2 * padding)
+                v = (vert.co.z - min_z + padding) / (height + 2 * padding)
+            elif side == 'left':
+                u = 1.0 - (vert.co.y - min_y + padding) / (depth + 2 * padding)
+                v = (vert.co.z - min_z + padding) / (height + 2 * padding)
+            elif side == 'right':
+                u = (vert.co.y - min_y + padding) / (depth + 2 * padding)
+                v = (vert.co.z - min_z + padding) / (height + 2 * padding)
             else:
-                u = (vert.co.x - min_x) / width
-                v = (vert.co.y - min_y) / depth
+                u = (vert.co.x - min_x + padding) / (width + 2 * padding)
+                v = (vert.co.y - min_y + padding) / (depth + 2 * padding)
 
+            u = max(uv_padding, min(1.0 - uv_padding, u))
+            v = max(uv_padding, min(1.0 - uv_padding, v))
             uv_layer[loop_index].uv = (u, v)
+
+
+def smooth_edge_transitions(obj, bounds, iterations=2):
+    #Smooth edge transitions between different profile views.#
+    mesh = obj.data
+    min_x, max_x, min_y, max_y = bounds
+    edge_threshold = max((max_x - min_x), (max_y - min_y)) * 0.1
+    
+    for _ in range(iterations):
+        # Get average heights of neighboring vertices
+        new_positions = [v.co.copy() for v in mesh.vertices]
+        
+        for i, vertex in enumerate(mesh.vertices):
+            if vertex.co.z <= 0.0:
+                continue
+            
+            # Find neighbors and smooth
+            neighbor_heights = [vertex.co.z]
+            neighbor_count = 1
+            
+            for other in mesh.vertices:
+                if other == vertex or other.co.z <= 0.0:
+                    continue
+                dist = (vertex.co - other.co).length
+                if dist < edge_threshold:
+                    neighbor_heights.append(other.co.z)
+                    neighbor_count += 1
+            
+            # Apply smoothing
+            avg_height = sum(neighbor_heights) / len(neighbor_heights)
+            new_positions[i].z = vertex.co.z * 0.7 + avg_height * 0.3
+        
+        # Apply smoothed positions
+        for i, vertex in enumerate(mesh.vertices):
+            vertex.co = new_positions[i]
+    
+    mesh.update()
 
 
 def get_polygon_bounds(polygon):

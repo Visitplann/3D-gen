@@ -18,6 +18,56 @@ import trimesh
 import numpy as np
 from PIL import Image
 import traceback
+from scipy.ndimage import distance_transform_edt
+
+
+# Helper functions for texture edge refinement
+def add_edge_padding_to_texture(texture, padding_size=8):
+    """Add padding to texture edges to prevent visible seams."""
+    h, w = texture.shape[:2]
+    has_alpha = texture.shape[2] == 4 if len(texture.shape) > 2 else False
+    
+    # Create padded texture
+    if has_alpha:
+        padded = np.zeros((h + 2*padding_size, w + 2*padding_size, 4), dtype=texture.dtype)
+        padded[padding_size:-padding_size, padding_size:-padding_size] = texture
+        
+        # Fill padding with edge pixels
+        padded[:padding_size, padding_size:-padding_size] = texture[0:1]  # Top
+        padded[-padding_size:, padding_size:-padding_size] = texture[-1:, :]  # Bottom
+        padded[padding_size:-padding_size, :padding_size] = texture[:, 0:1]  # Left
+        padded[padding_size:-padding_size, -padding_size:] = texture[:, -1:]  # Right
+    else:
+        padded = np.zeros((h + 2*padding_size, w + 2*padding_size, 3), dtype=texture.dtype)
+        padded[padding_size:-padding_size, padding_size:-padding_size] = texture
+        
+        # Fill padding with edge pixels
+        padded[:padding_size, padding_size:-padding_size] = texture[0:1]
+        padded[-padding_size:, padding_size:-padding_size] = texture[-1:, :]
+        padded[padding_size:-padding_size, :padding_size] = texture[:, 0:1]
+        padded[padding_size:-padding_size, -padding_size:] = texture[:, -1:]
+    
+    return padded
+
+
+def feather_normal_map_edges(normal_map, mask, feather_width=4):
+    """Apply edge feathering to normal map to smooth transitions."""
+    # Compute distance from edges
+    dist = distance_transform_edt(mask > 0).astype(np.float32)
+    
+    # Create feathering mask
+    feather_mask = np.clip(dist / feather_width, 0, 1)
+    feather_mask = np.stack([feather_mask] * 3, axis=-1)
+    
+    # Blend with neutral normal at edges
+    neutral_normal = np.array([128, 128, 255], dtype=np.uint8)
+    normal_float = normal_map.astype(np.float32)
+    neutral = neutral_normal.astype(np.float32)
+    
+    # Smooth transition at edges
+    smoothed = normal_float * feather_mask + neutral * (1 - feather_mask)
+    
+    return smoothed.astype(np.uint8)
 
 #Command line enabler for complex mode:
 # Enable complex mode for detailed reconstruction
@@ -126,7 +176,7 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
           "first shape shape:", getattr(shapes[0], "shape", None) if shapes else None)
         #
         
-        #Geração de Texturas
+        #Geração de Texturas com Edge Refinement
         albedo_path = os.path.join(out_dir, f"{view_type}_albedo.png")
         normal_path = os.path.join(out_dir, f"{view_type}_normal.png")
           
@@ -137,6 +187,10 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
         #DEBUG
         print("ALBEDO SHAPE:", albedo.shape)
         #
+        
+        # Add edge padding to albedo for seamless stitching
+        albedo = add_edge_padding_to_texture(albedo, padding_size=6)
+        
         if albedo.shape[2] == 4:
             Image.fromarray(albedo.astype(np.uint8), mode='RGBA').save(albedo_path, format='PNG')
         else:
@@ -154,9 +208,14 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
         normal = normal[y_bbox:y_bbox+h_bbox, x_bbox:x_bbox+w_bbox]
 
         mask_crop = mask[y_bbox:y_bbox+h_bbox, x_bbox:x_bbox+w_bbox]
-        normal[mask_crop == 0] = [128, 128, 255]
+        
+        # Apply edge feathering to normal map for smooth transitions
+        normal = feather_normal_map_edges(normal, mask_crop, feather_width=5)
+        
+        # Add edge padding to normal map
+        normal_padded = add_edge_padding_to_texture(normal, padding_size=6)
 
-        Image.fromarray(normal.astype(np.uint8), mode='RGB').save(normal_path, format='PNG')
+        Image.fromarray(normal_padded.astype(np.uint8), mode='RGB').save(normal_path, format='PNG')
         
         #textures = {
         #  "top": ("top_albedo.png", "top_normal.png"),

@@ -3,3 +3,4 @@ numpy
 trimesh
 pillow
 scikit-image
+scipy

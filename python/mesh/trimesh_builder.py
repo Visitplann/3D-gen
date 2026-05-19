@@ -4,7 +4,7 @@ import os
 import numpy as np
 from PIL import Image
 from trimesh import bounds
-from mesh.base_mesh_builder import BaseMeshBuilder
+from .base_mesh_builder import BaseMeshBuilder
 from shapely.geometry import Polygon
 import sys
 
