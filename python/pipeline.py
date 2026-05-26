@@ -46,7 +46,6 @@ def add_edge_padding_to_texture(texture, padding_size=8):
         padded[-padding_size:, padding_size:-padding_size] = texture[-1:, :]
         padded[padding_size:-padding_size, :padding_size] = texture[:, 0:1]
         padded[padding_size:-padding_size, -padding_size:] = texture[:, -1:]
-    
     return padded
 
 
@@ -192,9 +191,9 @@ def run_pipeline(monument_path, output_path, scale_factor=1.0, complex_mode=Fals
         albedo = add_edge_padding_to_texture(albedo, padding_size=6)
         
         if albedo.shape[2] == 4:
-            Image.fromarray(albedo.astype(np.uint8), mode='RGBA').save(albedo_path, format='PNG')
+          Image.fromarray(albedo.astype(np.uint8), mode='RGBA').save(albedo_path, format='PNG')
         else:
-            Image.fromarray(albedo.astype(np.uint8), mode='RGB').save(albedo_path, format='PNG')
+          Image.fromarray(albedo.astype(np.uint8), mode='RGB').save(albedo_path, format='PNG')
 
         # Generate the normal map from the full gray image, then crop it to the
         # same bounding box as the albedo so normal and albedo textures align.
@@ -298,8 +297,8 @@ if __name__ == "__main__":
   
   base_dir = os.path.dirname(os.path.abspath(__file__))
 
-  input_folder = os.path.join(base_dir, "..", "input", "monument_01")
-  output_file = os.path.join(base_dir, "output", "monument_01.glb")
+  input_folder = os.path.join(base_dir, "..", "input", "monument_03")
+  output_file = os.path.join(base_dir, "output", "monument_03.glb")
 
   input_folder = os.path.abspath(input_folder)
   output_file = os.path.abspath(output_file)

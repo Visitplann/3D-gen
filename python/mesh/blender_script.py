@@ -46,7 +46,10 @@ def create_material(name, image_path=None, normal_path=None):
             tex.image.colorspace_settings.name = 'sRGB'
             tex.image.colorspace_settings.is_data = False
         tex.image.alpha_mode = 'STRAIGHT'
+
+        # Connect image directly to Base Color (no node-channel swaps)
         links.new(tex.outputs['Color'], principled.inputs['Base Color'])
+
         if 'Alpha' in tex.outputs:
             links.new(tex.outputs['Alpha'], principled.inputs['Alpha'])
             material.blend_method = 'BLEND'
@@ -519,6 +522,107 @@ def build_scene(payload):
     export_dir = os.path.dirname(output_path)
     if export_dir and not os.path.exists(export_dir):
         os.makedirs(export_dir, exist_ok=True)
+
+    # Bake material base colors into images so the GLB exporter embeds the final colors
+    def bake_material_base_colors(objects, textures, export_dir):
+        scene = bpy.context.scene
+        prev_engine = scene.render.engine
+        try:
+            scene.render.engine = 'CYCLES'
+            scene.cycles.device = 'CPU'
+        except Exception:
+            pass
+
+        for side, entry in (textures or {}).items():
+            image_path = entry[0] if entry else None
+            if not image_path or not os.path.exists(image_path):
+                continue
+
+            baked_name = f"baked_{side}"
+            baked_img = bpy.data.images.new(baked_name, width=2048, height=2048, alpha=True)
+
+            target_mats = [m for m in bpy.data.materials if m.name.startswith(f"{side}_mat")]
+            if not target_mats:
+                continue
+
+            # For each material, create an image node pointing to the baked image and make it the active node.
+            for m in target_mats:
+                m.use_nodes = True
+                nodes = m.node_tree.nodes
+
+                img_node = nodes.new(type='ShaderNodeTexImage')
+                img_node.name = f'BakeTarget_{side}_{m.name}'
+                img_node.label = img_node.name
+                img_node.location = (0, 0)
+                img_node.image = baked_img
+
+                # Make the new image node the active node so bake writes into it
+                try:
+                    m.node_tree.nodes.active = img_node
+                except Exception:
+                    pass
+
+            # Select objects that use any of the target materials
+            bpy.ops.object.select_all(action='DESELECT')
+            objs_to_bake = []
+            for obj in objects:
+                for slot in getattr(obj, 'material_slots', []):
+                    if slot.material in target_mats:
+                        objs_to_bake.append(obj)
+                        obj.select_set(True)
+                        break
+
+            if not objs_to_bake:
+                continue
+
+            bpy.context.view_layer.objects.active = objs_to_bake[0]
+
+            # Ensure UVs exist on objects (bake uses active UV map)
+            for obj in objs_to_bake:
+                mesh = obj.data
+                if not mesh.uv_layers:
+                    mesh.uv_layers.new(name='UVMap')
+
+            # Perform bake (diffuse/color pass)
+            try:
+                bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_clear=True, use_selected_to_active=False)
+            except Exception as e:
+                print('Bake failed for', side, e)
+
+            # Save baked image to disk so glTF exporter embeds it
+            baked_path = os.path.join(export_dir, f"baked_{side}.png")
+            baked_img.filepath_raw = baked_path
+            baked_img.file_format = 'PNG'
+            try:
+                baked_img.save()
+            except Exception as e:
+                print('Failed to save baked image', baked_path, e)
+
+            # Replace original image nodes in target materials with the baked image so exporter uses it
+            for m in target_mats:
+                nodes = m.node_tree.nodes
+                for n in nodes:
+                    if n.type == 'TEX_IMAGE' and getattr(n, 'image', None):
+                        try:
+                            orig_path = getattr(n.image, 'filepath', '') or getattr(n.image, 'filepath_raw', '')
+                            if os.path.basename(orig_path) == os.path.basename(image_path):
+                                n.image = baked_img
+                        except Exception:
+                            pass
+
+            # Deselect objects for next iteration
+            bpy.ops.object.select_all(action='DESELECT')
+
+        # Restore render engine
+        try:
+            scene.render.engine = prev_engine
+        except Exception:
+            pass
+
+    try:
+        bake_material_base_colors(objects, textures, export_dir)
+    except Exception as e:
+        print('Bake step failed:', e)
 
     bpy.ops.export_scene.gltf(filepath=output_path, export_format='GLB', export_selected=False, export_materials='EXPORT')
 
